@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Protein Log</title>
+<meta name="description" content="Log protein by meal through the day, against a daily target set from your target weight.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Protein Log">
+<meta name="theme-color" content="#eef3f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1613" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column like a phone app. Today's total on top, then meals, the food picker, history, target and account. */
+:root {
+  --bg: #eef3f0;
+  --surface: #ffffff;
+  --sunk: #e3ebe6;
+  --ink: #12201a;
+  --muted: #5b6d64;
+  --line: #d3ded8;
+  --accent: #0d7a5f;
+  --accent-ink: #ffffff;
+  --accent-soft: #d5ece4;
+  --warn: #b5651d;
+  --m-breakfast: #e0a526;
+  --m-lunch: #2f8f6a;
+  --m-dinner: #2e5e9e;
+  --m-snack: #b0568a;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 14px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1613; --surface: #16211c; --sunk: #1d2a24; --ink: #e6efea; --muted: #94a69d;
+    --line: #2a3a33; --accent: #3fc79c; --accent-ink: #06231a; --accent-soft: #173a2f; --warn: #e3a25e;
+    --m-breakfast: #e8b84a; --m-lunch: #4fb98f; --m-dinner: #6b98d6; --m-snack: #d27fae;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(20px + env(safe-area-inset-top, 0px)) calc(48px + env(safe-area-inset-bottom, 0px));
+}
+[hidden] { display: none !important; }
+.app { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.label { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+h1 { margin: 0; font-family: var(--display); font-stretch: 125%; font-weight: 800; font-size: 20px; letter-spacing: -.01em; }
+h2 { font-family: var(--display); font-stretch: 112%; font-size: 15px; font-weight: 750; margin: 0; text-wrap: balance; }
+
+/* Top bar */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.datenav { display: flex; align-items: center; gap: 4px; }
+.iconbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; min-width: 36px; height: 36px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; }
+.iconbtn:hover { border-color: var(--accent); }
+.iconbtn:disabled { opacity: .4; cursor: default; }
+.datelabel { font-weight: 650; min-width: 112px; text-align: center; font-size: 14px; }
+
+/* Summary */
+.summary { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.big { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.big .val { font-family: var(--display); font-stretch: 118%; font-size: 52px; font-weight: 800; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.big .of { color: var(--muted); font-size: 16px; }
+.pill { font-size: 12px; font-weight: 650; padding: 4px 10px; border-radius: 999px; background: var(--sunk); color: var(--muted); margin-left: auto; white-space: nowrap; border: 0; }
+.pill.done { background: var(--accent); color: var(--accent-ink); }
+.pill.close { background: var(--accent-soft); color: var(--accent); }
+.bar { position: relative; height: 16px; background: var(--sunk); border-radius: 8px; overflow: hidden; display: flex; }
+.bar span { height: 100%; transition: width .25s ease; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; }
+
+/* Meals */
+.meals { display: flex; flex-direction: column; gap: 10px; }
+.meal { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.meal-head { display: flex; align-items: center; gap: 10px; padding: 11px 14px; }
+.meal-head .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.meal-head .sum { margin-left: auto; font-weight: 600; }
+.meal-head .add { border: 0; background: transparent; color: var(--accent); font-weight: 650; font-size: 13px; padding: 4px 6px; }
+.entries { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.entries:empty { display: none; }
+.entry { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+.entry:last-child { border-bottom: 0; }
+.entry .name { min-width: 0; }
+.entry .name b { font-weight: 600; display: block; overflow-wrap: anywhere; }
+.entry .name small { color: var(--muted); font-size: 12.5px; }
+.qty { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.qty button { border: 0; background: transparent; width: 30px; height: 30px; font-size: 16px; }
+.qty button:hover { background: var(--sunk); }
+.qty span { min-width: 34px; text-align: center; font-size: 13px; }
+.entry .g { min-width: 52px; text-align: right; font-weight: 600; }
+.entry .del { border: 0; background: transparent; color: var(--muted); width: 26px; height: 26px; border-radius: 7px; font-size: 16px; }
+.entry .del:hover { background: var(--sunk); color: var(--ink); }
+.entry-row2 { display: flex; align-items: center; gap: 6px; }
+
+/* Panels */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--sunk); border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; padding: 6px 11px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.search { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; }
+.groups { display: flex; flex-direction: column; gap: 14px; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.tile { position: relative; text-align: left; border: 1px solid var(--line); background: var(--bg); border-radius: 11px; padding: 10px 11px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tile:hover { border-color: var(--accent); }
+.tile:active { transform: scale(.98); }
+.tile b { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; padding-right: 18px; }
+.tile small { color: var(--muted); font-size: 12px; }
+.tile .p { font-family: var(--mono); font-weight: 600; color: var(--accent); font-size: 13px; margin-top: 2px; }
+.tile .rm { position: absolute; top: 6px; right: 6px; border: 0; background: transparent; color: var(--muted); width: 22px; height: 22px; border-radius: 6px; font-size: 14px; line-height: 1; }
+.tile .rm:hover { background: var(--sunk); color: var(--ink); }
+.custom { display: grid; grid-template-columns: 1fr 110px; gap: 8px; }
+.input { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.custom .row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.check { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; color: var(--muted); }
+.primary { border: 0; background: var(--accent); color: var(--accent-ink); font-weight: 700; border-radius: 10px; padding: 10px 16px; }
+.secondary { border: 1px solid var(--line); background: var(--surface); font-weight: 650; border-radius: 10px; padding: 10px 16px; }
+.primary:disabled, .secondary:disabled { opacity: .45; cursor: not-allowed; }
+.link { border: 0; background: transparent; color: var(--accent); font-weight: 650; padding: 0; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+
+/* History */
+.hist { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 150px; padding-top: 6px; }
+.hcol { display: flex; flex-direction: column; align-items: center; gap: 5px; height: 100%; justify-content: flex-end; border: 0; background: transparent; padding: 0; border-radius: 8px; min-width: 0; }
+.hcol .stack { width: 100%; max-width: 38px; background: var(--sunk); border-radius: 6px; position: relative; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.hcol .fill { width: 100%; background: var(--accent); border-radius: 6px 6px 0 0; }
+.hcol .fill.under { background: var(--warn); opacity: .85; }
+.hcol .tline { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--ink); opacity: .35; }
+.hcol small { font-size: 11px; color: var(--muted); }
+.hcol .hv { font-size: 11px; font-family: var(--mono); }
+.hcol[aria-current="true"] small { color: var(--ink); font-weight: 700; }
+
+/* Target */
+details.panel > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+details.panel > summary::-webkit-details-marker { display: none; }
+details.panel > summary .chev { transition: transform .2s; color: var(--muted); }
+details[open].panel > summary .chev { transform: rotate(90deg); }
+.fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field label { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.calc { background: var(--bg); border: 1px solid var(--line); border-radius: 11px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.calc .eq { font-family: var(--mono); font-size: 14px; }
+.note { font-size: 12.5px; color: var(--muted); }
+
+/* Account */
+.auth { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.auth .row { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+.msg { font-size: 13px; color: var(--muted); margin: 0; min-height: 1em; }
+.msg.err { color: var(--warn); }
+.banner { background: var(--accent-soft); color: var(--ink); border-radius: 10px; padding: 9px 12px; font-size: 13px; }
+.banner.err { background: color-mix(in srgb, var(--warn) 22%, var(--surface)); }
+
+/* Toast */
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 12px 10px 16px; border-radius: 12px; display: flex; align-items: center; gap: 12px; font-size: 14px; max-width: calc(100% - 32px); box-shadow: 0 6px 24px rgba(0,0,0,.25); z-index: 20; }
+.toast button { border: 0; background: transparent; color: var(--accent-soft); font-weight: 700; padding: 4px 6px; }
+@media (max-width: 440px) {
+  .fields { grid-template-columns: 1fr 1fr; }
+  .big .val { font-size: 44px; }
+  .custom { grid-template-columns: 1fr 92px; }
+  .auth { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>Protein Log</h1>
+    <nav class="datenav" aria-label="Choose day">
+      <button class="iconbtn" id="prevDay" aria-label="Previous day">‹</button>
+      <button class="iconbtn datelabel" id="dateLabel" title="Jump to today">Today</button>
+      <button class="iconbtn" id="nextDay" aria-label="Next day">›</button>
+    </nav>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <section class="summary" aria-label="Day total">
+    <div class="big">
+      <span class="val" id="total">0</span>
+      <span class="of">of <span class="num" id="target">–</span> g protein</span>
+      <button class="pill" id="status" type="button">Set your target</button>
+    </div>
+    <div class="bar" id="bar" role="img" aria-label="Protein progress"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section class="meals" id="meals" aria-label="Meals"></section>
+
+  <section class="panel" id="picker" aria-label="Add food">
+    <div class="panel-head">
+      <h2>Add food</h2>
+      <div class="seg" id="mealSeg" role="group" aria-label="Meal"></div>
+    </div>
+    <input class="search" id="search" type="search" placeholder="Search foods (e.g. chicken, tuna)" autocomplete="off">
+    <div class="groups" id="groups"></div>
+    <div class="group">
+      <span class="label">Something else</span>
+      <form class="custom" id="customForm">
+        <input class="input" type="text" id="cName" placeholder="Food, e.g. Greek yoghurt 200 g" required>
+        <input class="input" type="number" id="cProtein" placeholder="Protein g" min="0" max="300" step="0.5" inputmode="decimal" required>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="cSave" checked> Save to my foods</label>
+          <button class="primary" type="submit">Add</button>
+        </div>
+      </form>
+      <p class="hint">Figures are typical UK label values, meat and fish by raw weight. Check your packs and add your own if they differ.</p>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Last 7 days">
+    <div class="panel-head">
+      <h2>Last 7 days</h2>
+      <span class="note" id="avg"></span>
+    </div>
+    <div class="hist" id="hist"></div>
+  </section>
+
+  <details class="panel" id="settings">
+    <summary><h2>Your target</h2><span class="chev">›</span></summary>
+    <div class="fields">
+      <div class="field"><label for="sWeight">Weight now (kg)</label><input class="input" id="sWeight" type="number" min="30" max="300" step="0.1" inputmode="decimal"></div>
+      <div class="field"><label for="sHeight">Height (cm)</label><input class="input" id="sHeight" type="number" min="100" max="250" step="1" inputmode="numeric"></div>
+      <div class="field"><label for="sTarget">Target weight (kg)</label><input class="input" id="sTarget" type="number" min="30" max="300" step="0.5" inputmode="decimal"></div>
+    </div>
+    <div class="field">
+      <label>Protein per kg of target weight</label>
+      <div class="seg" id="factorSeg" role="group" aria-label="Grams per kilogram"></div>
+    </div>
+    <div class="calc">
+      <span class="eq" id="calcEq"></span>
+      <span class="note" id="calcRange"></span>
+      <span class="note" id="calcBmi"></span>
+    </div>
+    <p class="note">Why target weight: when you're carrying extra fat, protein is set from the weight you're heading to, not today's. Studies support 1.6–2.2 g per kg for keeping and building muscle while losing fat. 1.8 is a solid middle.</p>
+  </details>
+
+  <section class="panel" aria-label="Account">
+    <h2>Account</h2>
+    <div id="account"></div>
+  </section>
+</div>
+
+<div class="toast" id="toast" hidden role="status"><span id="toastMsg"></span><button id="toastUndo" type="button">Undo</button></div>
+
+<script>
+(() => {
+  const MEALS = [
+    { id: "breakfast", name: "Breakfast", color: "var(--m-breakfast)" },
+    { id: "lunch", name: "Lunch", color: "var(--m-lunch)" },
+    { id: "dinner", name: "Dinner", color: "var(--m-dinner)" },
+    { id: "snack", name: "Snacks", color: "var(--m-snack)" },
+  ];
+  const PRESETS = [
+    { group: "Staples", items: [
+      ["oats", "Porridge oats", "80 g", 10],
+      ["scoop", "Protein scoop", "1 scoop", 45],
+      ["yog", "Protein yoghurt", "1 pot", 50],
+      ["rice", "Rice pouch", "250 g pouch", 7],
+      ["banana", "Banana", "1 medium", 1],
+      ["veg", "Frozen veg", "Handful (80 g)", 3],
+    ]},
+    { group: "Fish", items: [
+      ["sardines", "Sardines", "1 can (~120 g)", 21],
+      ["tuna", "Tuna, drained", "1 can (~110 g)", 25],
+      ["salmon", "Salmon fillet", "1 fillet (~120 g)", 24],
+      ["cod", "Cod fillet", "1 fillet (~125 g)", 22],
+      ["basa", "Basa fillet", "1 fillet (~150 g)", 21],
+      ["prawns", "King prawns", "150 g", 21],
+    ]},
+    { group: "Meat (per 100 g raw)", items: [
+      ["chicken", "Chicken breast", "100 g raw", 23],
+      ["thigh", "Chicken thigh, boneless", "100 g raw", 18],
+      ["turkey", "Turkey breast steak", "100 g raw", 24],
+      ["tmince", "Turkey mince 2%", "100 g raw", 22],
+      ["bmince", "Beef mince 5%", "100 g raw", 21],
+      ["steak", "Rump steak", "100 g raw", 22],
+    ]},
+    { group: "Other", items: [
+      ["egg", "Egg", "1 large", 7],
+      ["curry", "Ready-meal curry", "1 pack", 25],
+      ["milk", "Semi-skimmed milk", "250 ml", 9],
+    ]},
+  ];
+  const DEFAULT_PROFILE = { weightKg: null, heightCm: null, targetKg: null, gPerKg: 1.8 };
+  const FACTORS = [1.6, 1.8, 2.0, 2.2];
+
+  const state = {
+    profile: { ...DEFAULT_PROFILE },
+    custom: [],
+    days: {},            // date -> entries[]
+    date: todayStr(),
+    meal: defaultMeal(),
+    query: "",
+  };
+
+  // ---- helpers ----
+  function todayStr(d = new Date()) {
+    const z = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+  }
+  function shiftDate(s, n) { const [y, m, d] = s.split("-").map(Number); return todayStr(new Date(y, m - 1, d + n)); }
+  function prettyDate(s) {
+    const t = todayStr();
+    if (s === t) return "Today";
+    if (s === shiftDate(t, -1)) return "Yesterday";
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  }
+  function defaultMeal() { const h = new Date().getHours(); return h < 11 ? "breakfast" : h < 15 ? "lunch" : h < 18 ? "snack" : "dinner"; }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  const round1 = n => Math.round(n * 10) / 10;
+  const fmt = n => (Math.round(n * 10) / 10).toString();
+  function targetG(p = state.profile) { return p.targetKg > 0 ? Math.round(p.targetKg * (Number(p.gPerKg) || 1.8)) : null; }
+  function entries(date = state.date) { return state.days[date] || []; }
+  function totalOf(list) { return list.reduce((s, e) => s + e.protein * e.qty, 0); }
+  const $ = id => document.getElementById(id);
+  function el(tag, attrs = {}, ...kids) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "class") n.className = v;
+      else if (k === "style") n.style.cssText = v;
+      else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) n.setAttribute(k, v === true ? "" : v);
+    }
+    for (const k of kids.flat()) if (k != null) n.append(k.nodeType ? k : document.createTextNode(k));
+    return n;
+  }
+
+  // ---- storage ----
+  // Signed out, the log lives in this browser under one key.
+  // Signed in, it lives in Supabase (the Gym Plan project): one row per day plus one settings row,
+  // and the database only lets each account see its own rows.
+  const KEY = "protein-log:v1";
+  const SUPABASE_URL = "https://dbcuhiaggjdyeljawtxh.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_F-6NUIGGX-TEtDJo8aloRw_f-s_zwcm";   // public by design: the row rules, not this key, protect the data. gitleaks:allow
+  let localOk = true;
+  try { localStorage.setItem(`${KEY}:probe`, "1"); localStorage.removeItem(`${KEY}:probe`); } catch { localOk = false; }
+  const readLocal = () => {
+    try { const v = JSON.parse(localStorage.getItem(KEY) || "null"); return v && typeof v === "object" ? v : { profile: null, custom: [], days: {} }; }
+    catch { return { profile: null, custom: [], days: {} }; }
+  };
+  const writeLocal = () => {
+    if (!localOk) return;
+    try { localStorage.setItem(KEY, JSON.stringify({ profile: state.profile, custom: state.custom, days: state.days })); } catch {}
+  };
+  const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }) : null;
+  let user = null;
+  const must = ({ data, error }) => { if (error) throw error; return data; };
+  const profileRow = () => ({
+    user_id: user.id, weight_kg: state.profile.weightKg, height_cm: state.profile.heightCm, target_kg: state.profile.targetKg,
+    g_per_kg: state.profile.gPerKg, custom_foods: state.custom, saved_at: Date.now(),
+  });
+  const cloud = {
+    async load() {
+      const [p, d] = await Promise.all([
+        sb.from("protein_profile").select("weight_kg,height_cm,target_kg,g_per_kg,custom_foods").maybeSingle(),
+        sb.from("protein_days").select("date,entries").order("date", { ascending: false }).limit(1000),
+      ]);
+      const prof = must(p), days = must(d);
+      return {
+        profile: prof ? { weightKg: num(prof.weight_kg), heightCm: num(prof.height_cm), targetKg: num(prof.target_kg), gPerKg: num(prof.g_per_kg) ?? 1.8 } : null,
+        custom: prof && Array.isArray(prof.custom_foods) ? prof.custom_foods : [],
+        days: Object.fromEntries(days.map(r => [r.date, Array.isArray(r.entries) ? r.entries : []])),
+      };
+    },
+    async saveDay(date) {
+      const list = entries(date);
+      if (!list.length) must(await sb.from("protein_days").delete().eq("date", date));
+      else must(await sb.from("protein_days").upsert({ user_id: user.id, date, entries: list, saved_at: Date.now() }, { onConflict: "user_id,date" }));
+    },
+    async saveProfile() { must(await sb.from("protein_profile").upsert(profileRow(), { onConflict: "user_id" })); },
+  };
+  function num(v) { return v == null ? null : Number(v); }
+
+  // One write at a time per row; a burst of taps collapses into one save of the latest state.
+  const flushing = {}, pending = {};
+  function save(key, fn) {
+    writeLocalIfSignedOut();
+    if (!user) return;
+    pending[key] = fn;
+    if (flushing[key]) return;
+    flushing[key] = true;
+    (async () => {
+      while (pending[key]) {
+        const f = pending[key]; pending[key] = null;
+        try { await f(); hideError(); }
+        catch { showError("Couldn’t save that change online. Check your signal; it will save with your next change."); }
+      }
+      flushing[key] = false;
+    })();
+  }
+  function writeLocalIfSignedOut() { if (!user) writeLocal(); }
+  const saveDay = date => save("day:" + date, () => cloud.saveDay(date));
+  const saveProfile = () => save("profile", () => cloud.saveProfile());
+
+  const banner = $("banner");
+  function showError(text) { banner.className = "banner err"; banner.textContent = text; banner.hidden = false; }
+  function hideError() { if (banner.classList.contains("err")) renderBanner(); }
+  function renderBanner() {
+    banner.className = "banner";
+    if (user) { banner.hidden = true; return; }
+    banner.hidden = false;
+    banner.textContent = !localOk && !sb ? "This browser is blocking storage (a private window?), so nothing can save here."
+      : "Saved in this browser only. Sign in at the bottom to keep your log safe online.";
+  }
+
+  async function reload() {
+    if (!user) {
+      const l = readLocal();
+      state.profile = { ...DEFAULT_PROFILE, ...(l.profile || {}) };
+      state.custom = Array.isArray(l.custom) ? l.custom : [];
+      state.days = l.days && typeof l.days === "object" ? l.days : {};
+      render(); return;
+    }
+    if (Object.values(flushing).some(Boolean)) return;   // don't overwrite changes still saving
+    try {
+      const forUser = user.id;
+      const c = await cloud.load();
+      if (!user || user.id !== forUser) return;
+      state.profile = { ...DEFAULT_PROFILE, ...(c.profile || {}) };
+      state.custom = c.custom;
+      state.days = c.days;
+      renderBanner();
+    } catch {
+      showError("Couldn’t load your log. Check your signal, then reload the page.");
+    }
+    render();
+  }
+
+  // ---- account ----
+  function renderAccount(step = {}) {
+    const box = $("account");
+    box.replaceChildren();
+    if (user) {
+      box.append(
+        el("p", { class: "hint" }, el("b", {}, "Saved online"), ` to ${user.email}. Same account as Gym Plan. Sign in with it on any device to see your log.`),
+        step.moved ? el("p", { class: "hint" }, `Moved ${step.moved} day${step.moved === 1 ? "" : "s"} from this browser to your online log.`) : null,
+        el("div", {}, el("button", { class: "link", type: "button", onclick: () => sb.auth.signOut() }, "Sign out")));
+      return;
+    }
+    if (!sb) { box.append(el("p", { class: "hint" }, "Online saving couldn’t load (no signal?), so the log saves in this browser for now. Reload to try again.")); return; }
+    const msg = el("p", { class: "msg", role: "status" });
+    const form = el("form", { class: "auth" },
+      el("input", { class: "input", name: "email", type: "email", autocomplete: "username", placeholder: "Email", "aria-label": "Email", required: true }),
+      el("input", { class: "input", name: "password", type: "password", autocomplete: "current-password", minlength: "8", placeholder: "Password (8+ characters)", "aria-label": "Password", required: true }),
+      el("div", { class: "row" },
+        el("button", { class: "primary", type: "submit", value: "in" }, "Sign in"),
+        el("button", { class: "secondary", type: "submit", value: "up" }, "Create account")));
+    form.addEventListener("submit", e => { e.preventDefault(); signIn(form, e.submitter?.value === "up" ? "up" : "in", msg); });
+    box.append(el("p", { class: "hint" }, "Use the same email and password as Gym Plan. Signed in, your log is saved online and shows on every device."), form, msg);
+  }
+  async function signIn(f, mode, msg) {
+    const email = f.elements.email.value.trim(), password = f.elements.password.value;
+    if (!email || password.length < 8) { msg.className = "msg err"; msg.textContent = "Enter your email and a password of 8 or more characters."; return; }
+    f.querySelectorAll("button").forEach(b => { b.disabled = true; });
+    msg.className = "msg"; msg.textContent = mode === "up" ? "Creating your account…" : "Signing in…";
+    const { error } = mode === "up" ? await sb.auth.signUp({ email, password }) : await sb.auth.signInWithPassword({ email, password });
+    if (!error) return;   // onAuthStateChange takes over
+    f.querySelectorAll("button").forEach(b => { b.disabled = false; });
+    msg.className = "msg err";
+    msg.textContent = error.status === 429 ? "Too many tries. Wait a few minutes, then try again."
+      : error.code === "invalid_credentials" ? "Wrong email or password. New here? Tap Create account."
+      : error.code === "user_already_exists" ? "There’s already an account with this email. Tap Sign in."
+      : (error.message || "Something went wrong. Check your signal and try again.");
+  }
+  async function useAccount(u) {
+    user = u;
+    let moved = 0;
+    if (u) {
+      // First sign-in on this browser: move its log online. Days already online win; the local copy is set aside, not deleted.
+      const mine = readLocal();
+      const days = Object.entries(mine.days || {}).filter(([, list]) => Array.isArray(list) && list.length);
+      if (days.length || mine.profile || (mine.custom || []).length) {
+        try {
+          if (days.length) must(await sb.from("protein_days").upsert(days.map(([date, list]) => ({ user_id: u.id, date, entries: list, saved_at: Date.now() })), { onConflict: "user_id,date", ignoreDuplicates: true }));
+          if (mine.profile || (mine.custom || []).length) {
+            const p = mine.profile || DEFAULT_PROFILE;
+            must(await sb.from("protein_profile").upsert({ user_id: u.id, weight_kg: p.weightKg, height_cm: p.heightCm, target_kg: p.targetKg, g_per_kg: p.gPerKg ?? 1.8, custom_foods: mine.custom || [], saved_at: Date.now() }, { onConflict: "user_id", ignoreDuplicates: true }));
+          }
+          localStorage.setItem(`${KEY}:moved-online`, JSON.stringify(mine));
+          localStorage.removeItem(KEY);
+          moved = days.length;
+        } catch { /* stays local; the next sign-in or reload tries again */ }
+      }
+    }
+    renderAccount({ moved });
+    renderBanner();
+    await reload();
+  }
+
+  // ---- actions ----
+  let lastAdded = null, toastTimer = null;
+  function addEntry(item) {
+    const date = state.date;
+    const entry = { id: uid(), meal: state.meal, name: item.name, serving: item.serving || "", protein: Number(item.protein), qty: 1, t: Date.now() };
+    state.days[date] = [...entries(date), entry];
+    saveDay(date); render();
+    lastAdded = { date, id: entry.id };
+    toast(`Added ${item.name} to ${MEALS.find(m => m.id === state.meal).name}`);
+  }
+  function changeQty(id, delta) {
+    const date = state.date;
+    state.days[date] = entries(date).map(e => e.id === id ? { ...e, qty: Math.max(0.5, round1(e.qty + delta)) } : e);
+    saveDay(date); render();
+  }
+  function removeEntry(id, date = state.date) {
+    state.days[date] = entries(date).filter(e => e.id !== id);
+    if (!state.days[date].length) delete state.days[date];
+    saveDay(date); render();
+  }
+  function setProfile(patch) { state.profile = { ...state.profile, ...patch }; saveProfile(); render(); }
+  function setCustom(list) { state.custom = list; saveProfile(); render(); }
+  function toast(msg) {
+    $("toastMsg").textContent = msg; $("toast").hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { $("toast").hidden = true; lastAdded = null; }, 4000);
+  }
+  $("toastUndo").addEventListener("click", () => {
+    if (lastAdded) removeEntry(lastAdded.id, lastAdded.date);
+    lastAdded = null; $("toast").hidden = true;
+  });
+
+  // ---- render ----
+  function render() {
+    const list = entries();
+    const tgt = targetG();
+    const total = totalOf(list);
+    $("dateLabel").textContent = prettyDate(state.date);
+    $("nextDay").disabled = state.date >= todayStr();
+    $("total").textContent = fmt(total);
+    $("target").textContent = tgt ?? "–";
+    const st = $("status");
+    if (!tgt) { st.className = "pill"; st.textContent = "Set your target"; }
+    else {
+      const left = tgt - total;
+      st.className = "pill" + (left <= 0 ? " done" : left <= 20 ? " close" : "");
+      st.textContent = left <= 0 ? `Target hit +${fmt(-left)} g` : `${fmt(left)} g to go`;
+    }
+
+    // stacked bar by meal
+    const bar = $("bar"); bar.replaceChildren();
+    const scale = Math.max(tgt || 0, total) || 1;
+    const legend = $("legend"); legend.replaceChildren();
+    for (const m of MEALS) {
+      const g = totalOf(list.filter(e => e.meal === m.id));
+      if (g > 0) bar.append(el("span", { style: `width:${(g / scale) * 100}%;background:${m.color}` }));
+      legend.append(el("span", {}, el("i", { style: `background:${m.color}` }), `${m.name} `, el("span", { class: "num" }, `${fmt(g)} g`)));
+    }
+    bar.setAttribute("aria-label", tgt ? `${fmt(total)} of ${tgt} grams` : `${fmt(total)} grams`);
+
+    // meals
+    const meals = $("meals"); meals.replaceChildren();
+    if (!list.length) meals.append(el("p", { class: "hint", style: "margin:0 4px" }, "Nothing logged yet. Pick a meal below, then tap a food to add it."));
+    for (const m of MEALS) {
+      const items = list.filter(e => e.meal === m.id);
+      const ul = el("ul", { class: "entries" });
+      for (const e of items) {
+        ul.append(el("li", { class: "entry" },
+          el("div", { class: "name" }, el("b", {}, e.name), el("small", {}, e.serving ? `${e.serving} · ${fmt(e.protein)} g each` : `${fmt(e.protein)} g each`)),
+          el("div", { class: "entry-row2" },
+            el("div", { class: "qty" },
+              el("button", { type: "button", "aria-label": `Less ${e.name}`, onclick: () => changeQty(e.id, -0.5) }, "−"),
+              el("span", { class: "num" }, `×${fmt(e.qty)}`),
+              el("button", { type: "button", "aria-label": `More ${e.name}`, onclick: () => changeQty(e.id, 0.5) }, "+")),
+            el("span", { class: "g num" }, `${fmt(e.protein * e.qty)} g`)),
+          el("button", { class: "del", type: "button", "aria-label": `Remove ${e.name}`, onclick: () => removeEntry(e.id) }, "×")));
+      }
+      meals.append(el("div", { class: "meal" },
+        el("div", { class: "meal-head" },
+          el("span", { class: "dot", style: `background:${m.color}` }),
+          el("h2", {}, m.name),
+          el("span", { class: "sum num" }, items.length ? `${fmt(totalOf(items))} g` : ""),
+          el("button", { class: "add", type: "button", onclick: () => { state.meal = m.id; render(); $("picker").scrollIntoView({ behavior: "smooth", block: "start" }); } }, "+ Add")),
+        ul));
+    }
+
+    // meal selector
+    const seg = $("mealSeg"); seg.replaceChildren();
+    for (const m of MEALS) seg.append(el("button", { type: "button", "aria-pressed": String(state.meal === m.id), onclick: () => { state.meal = m.id; render(); } }, m.name));
+
+    renderGroups();
+    renderHistory();
+    renderSettings();
+  }
+
+  function renderGroups() {
+    const q = state.query.trim().toLowerCase();
+    const groups = $("groups"); groups.replaceChildren();
+    const all = [];
+    if (state.custom.length) all.push({ group: "My foods", custom: true, items: state.custom.map(c => [c.id, c.name, c.serving || "", c.protein]) });
+    all.push(...PRESETS);
+    let shown = 0;
+    for (const g of all) {
+      const items = g.items.filter(([, name, serving]) => !q || `${name} ${serving}`.toLowerCase().includes(q));
+      if (!items.length) continue;
+      shown += items.length;
+      const tiles = el("div", { class: "tiles" });
+      for (const [id, name, serving, protein] of items) {
+        const tile = el("button", { class: "tile", type: "button", onclick: () => addEntry({ name, serving, protein }) },
+          el("b", {}, name), el("small", {}, serving || "1 serving"), el("span", { class: "p" }, `+${fmt(protein)} g`));
+        if (g.custom) {
+          const drop = ev => { ev.preventDefault(); ev.stopPropagation(); setCustom(state.custom.filter(c => c.id !== id)); };
+          tile.append(el("span", { class: "rm", role: "button", tabindex: "0", "aria-label": `Remove ${name} from my foods`,
+            onclick: drop, onkeydown: ev => { if (ev.key === "Enter" || ev.key === " ") drop(ev); } }, "×"));
+        }
+        tiles.append(tile);
+      }
+      groups.append(el("div", { class: "group" }, el("span", { class: "label" }, g.group), tiles));
+    }
+    if (!shown) groups.append(el("p", { class: "hint" }, `No match for "${state.query}". Add it below with its protein.`));
+  }
+
+  function renderHistory() {
+    const hist = $("hist"); hist.replaceChildren();
+    const tgt = targetG();
+    const today = todayStr();
+    const days = Array.from({ length: 7 }, (_, i) => shiftDate(today, i - 6));
+    const totals = days.map(d => totalOf(entries(d)));
+    const max = Math.max((tgt || 0) * 1.15, ...totals) || 1;
+    days.forEach((d, i) => {
+      const v = totals[i];
+      const [y, m, dd] = d.split("-").map(Number);
+      const lbl = d === today ? "Today" : new Date(y, m - 1, dd).toLocaleDateString("en-GB", { weekday: "short" });
+      const stack = el("div", { class: "stack" },
+        tgt ? el("div", { class: "tline", style: `bottom:${(tgt / max) * 100}%` }) : null,
+        el("div", { class: "fill" + (tgt && v < tgt ? " under" : ""), style: `height:${(v / max) * 100}%` }));
+      hist.append(el("button", { class: "hcol", type: "button", "aria-current": String(d === state.date), "aria-label": `${prettyDate(d)}: ${fmt(v)} grams`, onclick: () => { state.date = d; render(); } },
+        el("span", { class: "hv" }, v ? fmt(Math.round(v)) : "–"), stack, el("small", {}, lbl)));
+    });
+    const logged = totals.filter(v => v > 0);
+    const avg = logged.length ? Math.round(logged.reduce((a, b) => a + b, 0) / logged.length) : 0;
+    $("avg").textContent = !logged.length ? (tgt ? "Dashed line = your target" : "")
+      : tgt ? `Avg ${avg} g · hit ${totals.filter(v => v >= tgt).length}/7 · dashed line = target` : `Avg ${avg} g`;
+  }
+
+  function renderSettings() {
+    const p = state.profile;
+    for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"]]) {
+      const inp = $(id); if (document.activeElement !== inp) inp.value = p[key] ?? "";
+    }
+    const seg = $("factorSeg"); seg.replaceChildren();
+    for (const f of FACTORS) seg.append(el("button", { type: "button", "aria-pressed": String(Number(p.gPerKg) === f), onclick: () => setProfile({ gPerKg: f }) }, `${f.toFixed(1)} g/kg`));
+    const t = Number(p.targetKg);
+    if (t > 0) {
+      $("calcEq").textContent = `${fmt(t)} kg × ${Number(p.gPerKg).toFixed(1)} g/kg = ${targetG()} g a day`;
+      $("calcRange").textContent = `Supported range for ${fmt(t)} kg: ${Math.round(t * 1.6)}–${Math.round(t * 2.2)} g a day.`;
+    } else {
+      $("calcEq").textContent = "Enter your target weight to set your daily protein.";
+      $("calcRange").textContent = "";
+    }
+    const h = Number(p.heightCm), w = Number(p.weightKg);
+    const bmi = kg => (kg / (h / 100) ** 2).toFixed(1);
+    $("calcBmi").textContent = h > 0 && w > 0
+      ? `BMI now ${bmi(w)} at ${fmt(w)} kg${t > 0 ? ` · at ${fmt(t)} kg it would be ${bmi(t)}` : ""}.`
+      : "Add your weight and height to see your BMI.";
+  }
+
+  // ---- wiring ----
+  $("prevDay").addEventListener("click", () => { state.date = shiftDate(state.date, -1); render(); });
+  $("nextDay").addEventListener("click", () => { if (state.date < todayStr()) { state.date = shiftDate(state.date, 1); render(); } });
+  $("dateLabel").addEventListener("click", () => { state.date = todayStr(); render(); });
+  $("status").addEventListener("click", () => { if (!targetG()) { $("settings").open = true; $("sTarget").focus(); } });
+  $("search").addEventListener("input", e => { state.query = e.target.value; renderGroups(); });
+  $("customForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = $("cName").value.trim(), protein = Number($("cProtein").value);
+    if (!name || !(protein >= 0)) return;
+    if ($("cSave").checked && !state.custom.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+      setCustom([...state.custom, { id: uid(), name, serving: "", protein }]);
+    }
+    addEntry({ name, serving: "", protein });
+    $("cName").value = ""; $("cProtein").value = "";
+  });
+  for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"]]) {
+    $(id).addEventListener("change", e => {
+      const v = e.target.value === "" ? null : Number(e.target.value);
+      if (v !== null && !(v > 0)) return;
+      setProfile({ [key]: v });
+    });
+  }
+  // Roll over to the new day if the page stays open past midnight.
+  let lastToday = todayStr();
+  setInterval(() => { const t = todayStr(); if (t !== lastToday) { if (state.date === lastToday) state.date = t; lastToday = t; render(); } }, 60000);
+
+  // ---- start ----
+  render();
+  renderBanner();
+  if (sb) {
+    let started = false;
+    sb.auth.onAuthStateChange((event, session) => {
+      const u = session?.user ?? null;
+      if (started && (u?.id ?? null) === (user?.id ?? null)) return;   // token refreshes
+      started = true;
+      setTimeout(() => useAccount(u), 0);   // supabase-js advises against awaiting its calls inside this callback
+    });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && user) reload(); });
+  } else {
+    useAccount(null);
+  }
+  addEventListener("storage", e => { if (e.key === KEY && !user) reload(); });
+})();
+</script>
+</body>
+</html>
