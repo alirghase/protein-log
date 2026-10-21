@@ -134,6 +134,20 @@ h2 { font-family: var(--display); font-stretch: 112%; font-size: 15px; font-weig
 .link { border: 0; background: transparent; color: var(--accent); font-weight: 650; padding: 0; }
 .hint { color: var(--muted); font-size: 12.5px; margin: 0; }
 
+/* Weigh panel: grams for foods logged by weight */
+.weigh { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.weigh-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.weigh-head b { font-size: 15px; }
+.weigh-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.grams { display: inline-flex; align-items: center; gap: 6px; }
+.grams input { width: 92px; text-align: right; }
+.weigh .out { font-family: var(--mono); font-weight: 600; color: var(--accent); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chips button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600; font-family: var(--mono); }
+.chips button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.qty input { width: 52px; border: 0; background: transparent; text-align: center; font-family: var(--mono); font-size: 13px; padding: 0; -moz-appearance: textfield; }
+.qty input::-webkit-inner-spin-button, .qty input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
 /* History */
 .hist { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 150px; padding-top: 6px; }
 .hcol { display: flex; flex-direction: column; align-items: center; gap: 5px; height: 100%; justify-content: flex-end; border: 0; background: transparent; padding: 0; border-radius: 8px; min-width: 0; }
@@ -209,6 +223,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       <div class="seg" id="mealSeg" role="group" aria-label="Meal"></div>
     </div>
     <input class="search" id="search" type="search" placeholder="Search foods (e.g. chicken, tuna)" autocomplete="off">
+    <div class="weigh" id="weigh" hidden></div>
     <div class="groups" id="groups"></div>
     <div class="group">
       <span class="label">Something else</span>
@@ -284,13 +299,14 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       ["basa", "Basa fillet", "1 fillet (~150 g)", 21],
       ["prawns", "King prawns", "150 g", 21],
     ]},
-    { group: "Meat (per 100 g raw)", items: [
-      ["chicken", "Chicken breast", "100 g raw", 23],
-      ["thigh", "Chicken thigh, boneless", "100 g raw", 18],
-      ["turkey", "Turkey breast steak", "100 g raw", 24],
-      ["tmince", "Turkey mince 2%", "100 g raw", 22],
-      ["bmince", "Beef mince 5%", "100 g raw", 21],
-      ["steak", "Rump steak", "100 g raw", 22],
+    // Logged by weight: the number is protein per 100 g raw, and tapping asks for grams.
+    { group: "Meat (by weight, raw)", per100: true, items: [
+      ["chicken", "Chicken breast", "raw", 23],
+      ["thigh", "Chicken thigh, boneless", "raw", 18],
+      ["turkey", "Turkey breast steak", "raw", 24],
+      ["tmince", "Turkey mince 2%", "raw", 22],
+      ["bmince", "Beef mince 5%", "raw", 21],
+      ["steak", "Rump steak", "raw", 22],
     ]},
     { group: "Other", items: [
       ["egg", "Egg", "1 large", 7],
@@ -329,7 +345,12 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   const fmt = n => (Math.round(n * 10) / 10).toString();
   function targetG(p = state.profile) { return p.targetKg > 0 ? Math.round(p.targetKg * (Number(p.gPerKg) || 1.8)) : null; }
   function entries(date = state.date) { return state.days[date] || []; }
-  function totalOf(list) { return list.reduce((s, e) => s + e.protein * e.qty, 0); }
+  // By-weight entries keep protein per 100 g and the grams eaten; the rest keep protein per serving and a count.
+  const entryG = e => e.per100 ? e.protein * e.grams / 100 : e.protein * e.qty;
+  function totalOf(list) { return list.reduce((s, e) => s + entryG(e), 0); }
+  const GRAMS_KEY = "protein-log:last-grams";
+  const lastGrams = name => { try { return JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}")[name] || 200; } catch { return 200; } };
+  const rememberGrams = (name, g) => { try { const m = JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}"); m[name] = g; localStorage.setItem(GRAMS_KEY, JSON.stringify(m)); } catch {} };
   const $ = id => document.getElementById(id);
   function el(tag, attrs = {}, ...kids) {
     const n = document.createElement(tag);
@@ -509,7 +530,9 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   let lastAdded = null, toastTimer = null;
   function addEntry(item) {
     const date = state.date;
-    const entry = { id: uid(), meal: state.meal, name: item.name, serving: item.serving || "", protein: Number(item.protein), qty: 1, t: Date.now() };
+    const entry = item.grams
+      ? { id: uid(), meal: state.meal, name: item.name, serving: item.serving || "", protein: Number(item.protein), per100: true, grams: item.grams, t: Date.now() }
+      : { id: uid(), meal: state.meal, name: item.name, serving: item.serving || "", protein: Number(item.protein), qty: 1, t: Date.now() };
     state.days[date] = [...entries(date), entry];
     saveDay(date); render();
     lastAdded = { date, id: entry.id };
@@ -517,8 +540,54 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   }
   function changeQty(id, delta) {
     const date = state.date;
-    state.days[date] = entries(date).map(e => e.id === id ? { ...e, qty: Math.max(0.5, round1(e.qty + delta)) } : e);
+    state.days[date] = entries(date).map(e => e.id !== id ? e
+      : e.per100 ? { ...e, grams: Math.max(5, Math.round(e.grams + delta * 50)) }
+      : { ...e, qty: Math.max(0.5, round1(e.qty + delta)) });
     saveDay(date); render();
+  }
+  function setGrams(id, g) {
+    if (!(g > 0)) { render(); return; }
+    const date = state.date;
+    state.days[date] = entries(date).map(e => e.id === id ? { ...e, grams: Math.min(5000, Math.round(g)) } : e);
+    saveDay(date); render();
+  }
+
+  // ---- weigh panel ----
+  let weighing = null;   // { name, serving, protein } while choosing grams
+  function openWeigh(item) { weighing = item; renderWeigh(true); }
+  function renderWeigh(focus = false) {
+    const box = $("weigh");
+    if (!weighing) { box.hidden = true; box.replaceChildren(); return; }
+    const item = weighing;
+    const start = lastGrams(item.name);
+    const input = el("input", { class: "input", id: "weighGrams", type: "number", min: "5", max: "5000", step: "5", inputmode: "numeric", value: String(start), "aria-label": `Grams of ${item.name}` });
+    const out = el("span", { class: "out" });
+    const chips = el("div", { class: "chips" });
+    const sync = () => {
+      const g = Number(input.value);
+      out.textContent = g > 0 ? `= ${fmt(item.protein * g / 100)} g protein` : "";
+      for (const b of chips.children) b.setAttribute("aria-pressed", String(Number(b.dataset.g) === g));
+    };
+    for (const g of [100, 150, 200, 250, 300]) chips.append(el("button", { type: "button", "data-g": String(g), onclick: () => { input.value = g; sync(); } }, `${g} g`));
+    const add = () => {
+      const g = Math.round(Number(input.value));
+      if (!(g > 0)) { input.focus(); return; }
+      rememberGrams(item.name, g);
+      weighing = null; renderWeigh();
+      addEntry({ ...item, grams: g });
+    };
+    input.addEventListener("input", sync);
+    input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); add(); } });
+    box.replaceChildren(
+      el("div", { class: "weigh-head" }, el("b", {}, `${item.name}: how much?`), el("span", { class: "note" }, `${fmt(item.protein)} g protein per 100 g ${item.serving}`)),
+      el("div", { class: "weigh-row" }, el("span", { class: "grams" }, input, "g"), out),
+      chips,
+      el("div", { class: "weigh-row" },
+        el("button", { class: "primary", type: "button", onclick: add }, "Add"),
+        el("button", { class: "secondary", type: "button", onclick: () => { weighing = null; renderWeigh(); } }, "Cancel")));
+    box.hidden = false;
+    sync();
+    if (focus) { box.scrollIntoView({ behavior: "smooth", block: "center" }); input.focus({ preventScroll: true }); input.select(); }
   }
   function removeEntry(id, date = state.date) {
     state.days[date] = entries(date).filter(e => e.id !== id);
@@ -571,14 +640,19 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       const items = list.filter(e => e.meal === m.id);
       const ul = el("ul", { class: "entries" });
       for (const e of items) {
+        const amount = e.per100
+          ? el("input", { type: "number", min: "5", max: "5000", step: "5", inputmode: "numeric", value: String(e.grams), "aria-label": `Grams of ${e.name}`,
+              onchange: ev => setGrams(e.id, Number(ev.target.value)), onkeydown: ev => { if (ev.key === "Enter") ev.target.blur(); } })
+          : el("span", { class: "num" }, `×${fmt(e.qty)}`);
         ul.append(el("li", { class: "entry" },
-          el("div", { class: "name" }, el("b", {}, e.name), el("small", {}, e.serving ? `${e.serving} · ${fmt(e.protein)} g each` : `${fmt(e.protein)} g each`)),
+          el("div", { class: "name" }, el("b", {}, e.name),
+            el("small", {}, e.per100 ? `${fmt(e.protein)} g per 100 g${e.serving ? ` ${e.serving}` : ""}` : e.serving ? `${e.serving} · ${fmt(e.protein)} g each` : `${fmt(e.protein)} g each`)),
           el("div", { class: "entry-row2" },
             el("div", { class: "qty" },
-              el("button", { type: "button", "aria-label": `Less ${e.name}`, onclick: () => changeQty(e.id, -0.5) }, "−"),
-              el("span", { class: "num" }, `×${fmt(e.qty)}`),
-              el("button", { type: "button", "aria-label": `More ${e.name}`, onclick: () => changeQty(e.id, 0.5) }, "+")),
-            el("span", { class: "g num" }, `${fmt(e.protein * e.qty)} g`)),
+              el("button", { type: "button", "aria-label": e.per100 ? `25 g less ${e.name}` : `Less ${e.name}`, onclick: () => changeQty(e.id, -0.5) }, "−"),
+              amount, e.per100 ? el("span", { class: "num", style: "min-width:0;padding-right:4px" }, "g") : null,
+              el("button", { type: "button", "aria-label": e.per100 ? `25 g more ${e.name}` : `More ${e.name}`, onclick: () => changeQty(e.id, 0.5) }, "+")),
+            el("span", { class: "g num" }, `${fmt(entryG(e))} g`)),
           el("button", { class: "del", type: "button", "aria-label": `Remove ${e.name}`, onclick: () => removeEntry(e.id) }, "×")));
       }
       meals.append(el("div", { class: "meal" },
@@ -612,8 +686,11 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       shown += items.length;
       const tiles = el("div", { class: "tiles" });
       for (const [id, name, serving, protein] of items) {
-        const tile = el("button", { class: "tile", type: "button", onclick: () => addEntry({ name, serving, protein }) },
-          el("b", {}, name), el("small", {}, serving || "1 serving"), el("span", { class: "p" }, `+${fmt(protein)} g`));
+        const tile = g.per100
+          ? el("button", { class: "tile", type: "button", onclick: () => openWeigh({ name, serving, protein }) },
+              el("b", {}, name), el("small", {}, `Enter grams · ${serving}`), el("span", { class: "p" }, `${fmt(protein)} g / 100 g`))
+          : el("button", { class: "tile", type: "button", onclick: () => addEntry({ name, serving, protein }) },
+              el("b", {}, name), el("small", {}, serving || "1 serving"), el("span", { class: "p" }, `+${fmt(protein)} g`));
         if (g.custom) {
           const drop = ev => { ev.preventDefault(); ev.stopPropagation(); setCustom(state.custom.filter(c => c.id !== id)); };
           tile.append(el("span", { class: "rm", role: "button", tabindex: "0", "aria-label": `Remove ${name} from my foods`,

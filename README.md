@@ -10,9 +10,12 @@ Live at **https://alirghase.github.io/protein-log/**.
   you're heading to, not today's, because extra fat doesn't need feeding with protein. Add your
   height and current weight to see your BMI now and at your target.
 - **Logging:** pick a meal (breakfast, lunch, dinner, snacks), then tap a food. Use − and + to change
-  the amount (×2 of "Chicken breast, 100 g raw" is 200 g). **Undo** removes the last add.
-- **Built-in foods:** staples (oats, protein scoop, protein yoghurt, rice pouch), fish, meat per 100 g
-  raw, and a few others. Values are typical UK label figures.
+  the amount. **Undo** removes the last add.
+- **By weight:** meat asks for grams (type any weight or tap 100–300 g) and works out the protein from
+  its per-100 g value. It remembers your last weight for each food. In the day's list, type a new
+  weight or nudge it by 25 g.
+- **Built-in foods:** staples (oats, protein scoop, protein yoghurt, rice pouch), fish, meat by
+  weight, and a few others. Values are typical UK label figures.
 - **Your own foods:** type a name and its protein; it's saved to **My foods** for one-tap adds.
 - **Last 7 days:** each day against the target. Tap a day to see or edit it.
 
