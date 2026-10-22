@@ -308,6 +308,28 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       ["bmince", "Beef mince 5%", "raw", 21],
       ["steak", "Rump steak", "raw", 22],
     ]},
+    // Air-fried, weighed after cooking: water cooks off, so protein per 100 g is higher than raw.
+    { group: "Air-fried (by weight, cooked)", per100: true, items: [
+      ["af-chicken", "Chicken breast, air-fried", "cooked", 31],
+      ["af-thigh", "Chicken thigh, air-fried", "cooked", 25],
+      ["af-turkey", "Turkey breast steak, air-fried", "cooked", 30],
+      ["af-bmince", "Beef mince 5%, air-fried", "cooked", 27],
+      ["af-tmince", "Turkey mince 2%, air-fried", "cooked", 29],
+      ["af-fish", "White fish (pollock, basa, cod), air-fried", "cooked", 22],
+      ["af-salmon", "Salmon, air-fried", "cooked", 25],
+      ["af-prawns", "Prawns, air-fried", "cooked", 24],
+    ]},
+    // Whole dishes, weighed as served. Marinades, onion, tomatoes and beans dilute the meat.
+    { group: "Air-fried meals (by weight, cooked)", per100: true, items: [
+      ["joojeh", "Joojeh kabab (saffron chicken)", "cooked", 29],
+      ["shawarma", "Chicken thigh shawarma", "cooked", 24],
+      ["koobideh", "Koobideh-style kofta (5% beef)", "cooked", 24],
+      ["af-lemonfish", "Lemon-garlic fish", "cooked", 22],
+      ["af-garlicprawns", "Garlic chilli prawns", "cooked", 23],
+      ["tunamayo", "Tuna \"mayo\" with Greek yoghurt", "as made", 19],
+      ["tchilli", "Turkey chilli", "cooked", 10],
+      ["shakshuka", "Shakshuka with cottage cheese", "cooked", 8],
+    ]},
     { group: "Other", items: [
       ["egg", "Egg", "1 large", 7],
       ["curry", "Ready-meal curry", "1 pack", 25],
@@ -560,7 +582,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     if (!weighing) { box.hidden = true; box.replaceChildren(); return; }
     const item = weighing;
     const start = lastGrams(item.name);
-    const input = el("input", { class: "input", id: "weighGrams", type: "number", min: "5", max: "5000", step: "5", inputmode: "numeric", value: String(start), "aria-label": `Grams of ${item.name}` });
+    const input = el("input", { class: "input", id: "weighGrams", type: "number", min: "5", max: "5000", step: "50", inputmode: "numeric", value: String(start), "aria-label": `Grams of ${item.name}` });
     const out = el("span", { class: "out" });
     const chips = el("div", { class: "chips" });
     const sync = () => {
@@ -568,7 +590,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       out.textContent = g > 0 ? `= ${fmt(item.protein * g / 100)} g protein` : "";
       for (const b of chips.children) b.setAttribute("aria-pressed", String(Number(b.dataset.g) === g));
     };
-    for (const g of [100, 150, 200, 250, 300]) chips.append(el("button", { type: "button", "data-g": String(g), onclick: () => { input.value = g; sync(); } }, `${g} g`));
+    for (const g of [50, 100, 150, 200, 250, 300, 350, 400]) chips.append(el("button", { type: "button", "data-g": String(g), onclick: () => { input.value = g; sync(); } }, `${g} g · ${fmt(item.protein * g / 100)}`));
     const add = () => {
       const g = Math.round(Number(input.value));
       if (!(g > 0)) { input.focus(); return; }
@@ -641,7 +663,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       const ul = el("ul", { class: "entries" });
       for (const e of items) {
         const amount = e.per100
-          ? el("input", { type: "number", min: "5", max: "5000", step: "5", inputmode: "numeric", value: String(e.grams), "aria-label": `Grams of ${e.name}`,
+          ? el("input", { type: "number", min: "5", max: "5000", step: "50", inputmode: "numeric", value: String(e.grams), "aria-label": `Grams of ${e.name}`,
               onchange: ev => setGrams(e.id, Number(ev.target.value)), onkeydown: ev => { if (ev.key === "Enter") ev.target.blur(); } })
           : el("span", { class: "num" }, `×${fmt(e.qty)}`);
         ul.append(el("li", { class: "entry" },
