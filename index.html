@@ -320,6 +320,72 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       ["af-salmon", "Salmon (farmed), air-fried", "cooked", 22],
       ["af-prawns", "Prawns, air-fried", "cooked", 24],
     ]},
+    // Aldi range, air-fried and weighed cooked (hot smoked fish is ready to eat, weighed as is).
+    // The last field is one piece's typical cooked weight from the pack, for one-tap adds without scales
+    // (optionally which counts to offer; 1 and 2 otherwise).
+    { group: "Aldi salmon & trout (air-fried)", per100: true, items: [
+      ["a-sal-scot", "Scottish salmon fillets", "cooked", 22, ["fillet", 100]],
+      ["a-sal-boneless", "Boneless salmon fillets", "cooked", 22, ["fillet", 100]],
+      ["a-sal-lsmoked", "Lightly smoked Scottish salmon", "cooked", 23, ["fillet", 100]],
+      ["a-sal-gh", "Garlic & herb salmon fillets", "cooked", 21, ["fillet", 100]],
+      ["a-sal-gh-inf", "Garlic & herb infused salmon", "cooked", 22, ["fillet", 100]],
+      ["a-sal-swchilli", "Sweet chilli infused salmon", "cooked", 22, ["fillet", 100]],
+      ["a-sal-gcl", "Ginger, chilli & lime infused salmon", "cooked", 21, ["fillet", 100]],
+      ["a-sal-redthai", "Red Thai infused salmon", "cooked", 21, ["fillet", 100]],
+      ["a-sal-joint", "Salmon fillet joint", "cooked", 22, ["portion", 125]],
+      ["a-sal-pieces", "Salmon pieces", "cooked", 22],
+      ["a-trout", "Trout fillets", "cooked", 23, ["fillet", 100]],
+      ["a-sal-hs", "Hot smoked salmon fillets", "ready to eat", 24, ["fillet", 90]],
+      ["a-sal-hs-swchilli", "Hot smoked sweet chilli salmon", "ready to eat", 23, ["fillet", 90]],
+      ["a-sal-kiln", "Lemon & herb kiln roasted salmon", "ready to eat", 24, ["fillet", 90]],
+    ]},
+    { group: "Aldi white fish, tuna & mackerel (air-fried)", per100: true, items: [
+      ["a-cod", "Cod loins", "cooked", 22, ["loin", 110]],
+      ["a-hake", "Hake fillets", "cooked", 21, ["fillet", 95]],
+      ["a-haddock", "Smoked haddock fillets", "cooked", 23, ["fillet", 95]],
+      ["a-tuna", "Tuna steak (frozen)", "cooked", 29, ["steak", 95]],
+      ["a-yftuna", "Yellowfin tuna steak", "cooked", 30, ["steak", 105]],
+      ["a-basa", "Basa fillets", "cooked", 19, ["fillet", 105]],
+      ["a-sbasa", "Smoked basa fillets", "cooked", 19, ["fillet", 105]],
+      ["a-bcod", "Breaded cod", "cooked", 14, ["piece", 120]],
+      ["a-mack", "Hot smoked mackerel", "ready to eat", 19, ["fillet", 100]],
+      ["a-mack-pep", "Hot smoked peppered mackerel", "ready to eat", 19, ["fillet", 100]],
+      ["a-mack-sweet", "Hot smoked sweetcure mackerel", "ready to eat", 18, ["fillet", 100]],
+    ]},
+    { group: "Aldi chicken & turkey (air-fried)", per100: true, items: [
+      ["a-chk", "Chicken breast fillets", "cooked", 31, ["fillet", 115]],
+      ["a-chk-fr", "Free range chicken fillets", "cooked", 31, ["fillet", 125]],
+      ["a-chk-cajun", "Cajun chicken breast", "cooked", 29, ["fillet", 115]],
+      ["a-chk-mini", "Chicken breast mini fillets", "cooked", 31, ["mini fillet", 25, [2, 4, 6]]],
+      ["a-chk-diced", "Diced chicken breast", "cooked", 31],
+      ["a-turkey", "Turkey breast steaks 2% fat", "cooked", 30, ["steak", 85]],
+      ["a-chk-breaded", "Breaded chicken steaks", "cooked", 15, ["steak", 90]],
+      ["a-chk-sf", "Southern fried chicken steaks", "cooked", 14, ["steak", 90]],
+    ]},
+    { group: "Aldi beef & lamb (air-fried, medium)", per100: true, items: [
+      ["a-fil-scot", "Scotch Angus fillet steak 6oz", "cooked", 28, ["steak", 135]],
+      ["a-fil-brit-angus", "British Angus fillet steak 6oz", "cooked", 28, ["steak", 135]],
+      ["a-fil-brit30", "British 30-day fillet steak 6oz", "cooked", 28, ["steak", 135]],
+      ["a-fil-ash", "Fillet steak 28-day", "cooked", 28, ["steak", 135]],
+      ["a-rump-ash", "Rump steak 21-day", "cooked", 28, ["steak", 175]],
+      ["a-rump-ss", "Thick cut rump steak", "cooked", 28, ["steak", 175]],
+      ["a-rump-bigdaddy", "Big Daddy rump steak 16oz", "cooked", 28, ["steak", 350]],
+      ["a-ranch-brit", "British ranch steak", "cooked", 28, ["steak", 155]],
+      ["a-ranch-scot", "Scotch ranch steak", "cooked", 28, ["steak", 155]],
+      ["a-ee-steak", "Beef steak 21-day (Everyday Essentials)", "cooked", 28, ["steak", 130]],
+      ["a-braising", "Braising steak, sliced thin", "cooked", 29],
+      ["a-sirloin", "Sirloin steak 21-day", "cooked", 27, ["steak", 175]],
+      ["a-ribeye", "Ribeye steak 21-day", "cooked", 25, ["steak", 175]],
+      ["a-ribeye-dry", "Scotch dry-aged ribeye 8oz", "cooked", 25, ["steak", 175]],
+      ["a-wag-fillet", "Wagyu fillet steak", "cooked", 26, ["steak", 135]],
+      ["a-wag-rump", "Wagyu rump steak", "cooked", 26, ["steak", 175]],
+      ["a-wag-sirloin", "Wagyu sirloin steak", "cooked", 25, ["steak", 175]],
+      ["a-wag-ribeye", "Wagyu ribeye steak", "cooked", 23, ["steak", 175]],
+      ["a-wag-flat", "Wagyu flat iron steak", "cooked", 23, ["steak", 155]],
+      ["a-wag-denver", "Wagyu Denver steak", "cooked", 23, ["steak", 155]],
+      ["a-wag-picanha", "Wagyu picanha steak", "cooked", 23, ["steak", 155]],
+      ["a-lamb", "Lamb leg steaks", "cooked", 27, ["steak", 115]],
+    ]},
     { group: "Other", items: [
       ["egg", "Egg", "1 large", 7],
       ["curry", "Ready-meal curry", "1 pack", 25],
@@ -361,7 +427,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   const entryG = e => e.per100 ? e.protein * e.grams / 100 : e.protein * e.qty;
   function totalOf(list) { return list.reduce((s, e) => s + entryG(e), 0); }
   const GRAMS_KEY = "protein-log:last-grams";
-  const lastGrams = name => { try { return JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}")[name] || 200; } catch { return 200; } };
+  const lastGrams = (name, fallback = 200) => { try { return JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}")[name] || fallback; } catch { return fallback; } };
   const rememberGrams = (name, g) => { try { const m = JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}"); m[name] = g; localStorage.setItem(GRAMS_KEY, JSON.stringify(m)); } catch {} };
   const $ = id => document.getElementById(id);
   function el(tag, attrs = {}, ...kids) {
@@ -565,13 +631,13 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   }
 
   // ---- weigh panel ----
-  let weighing = null;   // { name, serving, protein } while choosing grams
+  let weighing = null;   // { name, serving, protein, piece? } while choosing grams
   function openWeigh(item) { weighing = item; renderWeigh(true); }
   function renderWeigh(focus = false) {
     const box = $("weigh");
     if (!weighing) { box.hidden = true; box.replaceChildren(); return; }
     const item = weighing;
-    const start = lastGrams(item.name);
+    const start = lastGrams(item.name, item.piece?.[1]);
     const input = el("input", { class: "input", id: "weighGrams", type: "number", min: "5", max: "5000", step: "50", inputmode: "numeric", value: String(start), "aria-label": `Grams of ${item.name}` });
     const out = el("span", { class: "out" });
     const chips = el("div", { class: "chips" });
@@ -580,6 +646,12 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       out.textContent = g > 0 ? `= ${fmt(item.protein * g / 100)} g protein` : "";
       for (const b of chips.children) b.setAttribute("aria-pressed", String(Number(b.dataset.g) === g));
     };
+    // Pieces first (e.g. 1 and 2 fillets at their typical cooked weight), then 50 g steps.
+    if (item.piece) {
+      const [label, pg, counts = [1, 2]] = item.piece;
+      for (const n of counts) chips.append(el("button", { type: "button", "data-g": String(n * pg), onclick: () => { input.value = n * pg; sync(); } },
+        `${n} ${label}${n > 1 ? "s" : ""} · ${fmt(item.protein * n * pg / 100)}`));
+    }
     for (const g of [50, 100, 150, 200, 250, 300, 350, 400]) chips.append(el("button", { type: "button", "data-g": String(g), onclick: () => { input.value = g; sync(); } }, `${g} g · ${fmt(item.protein * g / 100)}`));
     const add = () => {
       const g = Math.round(Number(input.value));
@@ -591,7 +663,8 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     input.addEventListener("input", sync);
     input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); add(); } });
     box.replaceChildren(
-      el("div", { class: "weigh-head" }, el("b", {}, `${item.name}: how much?`), el("span", { class: "note" }, `${fmt(item.protein)} g protein per 100 g ${item.serving}`)),
+      el("div", { class: "weigh-head" }, el("b", {}, `${item.name}: how much?`), el("span", { class: "note" },
+        `${fmt(item.protein)} g protein per 100 g ${item.serving}${item.piece ? ` · 1 ${item.piece[0]} ≈ ${item.piece[1]} g` : ""}`)),
       el("div", { class: "weigh-row" }, el("span", { class: "grams" }, input, "g"), out),
       chips,
       el("div", { class: "weigh-row" },
@@ -693,14 +766,15 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     all.push(...PRESETS);
     let shown = 0;
     for (const g of all) {
-      const items = g.items.filter(([, name, serving]) => !q || `${name} ${serving}`.toLowerCase().includes(q));
+      const items = g.items.filter(([, name, serving]) => !q || `${g.group} ${name} ${serving}`.toLowerCase().includes(q));
       if (!items.length) continue;
       shown += items.length;
       const tiles = el("div", { class: "tiles" });
-      for (const [id, name, serving, protein] of items) {
+      for (const [id, name, serving, protein, piece] of items) {
         const tile = g.per100
-          ? el("button", { class: "tile", type: "button", onclick: () => openWeigh({ name, serving, protein }) },
-              el("b", {}, name), el("small", {}, `Enter grams · ${serving}`), el("span", { class: "p" }, `${fmt(protein)} g / 100 g`))
+          ? el("button", { class: "tile", type: "button", onclick: () => openWeigh({ name, serving, protein, piece }) },
+              el("b", {}, name), el("small", {}, piece ? `${serving} · 1 ${piece[0]} ≈ ${piece[1]} g` : `Enter grams · ${serving}`),
+              el("span", { class: "p" }, `${fmt(protein)} g / 100 g`))
           : el("button", { class: "tile", type: "button", onclick: () => addEntry({ name, serving, protein }) },
               el("b", {}, name), el("small", {}, serving || "1 serving"), el("span", { class: "p" }, `+${fmt(protein)} g`));
         if (g.custom) {

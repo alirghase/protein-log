@@ -16,6 +16,9 @@ Live at **https://alirghase.github.io/protein-log/**.
   each food. In the day's list, type a new weight or nudge it by 50 g.
 - **Built-in foods:** staples (oats, protein scoop, protein yoghurt, rice pouch), fish, meat by
   weight (raw), air-fried meat and fish (weighed cooked), and a few others. Values are typical UK label figures.
+- **Aldi range:** Aldi's salmon, trout, white fish, tuna, mackerel, chicken, turkey, beef and lamb, air-fried
+  and weighed cooked (hot smoked fish is ready to eat). Each has quick buttons for 1 or 2 fillets or steaks
+  at their typical cooked weight, so you can log without scales; weigh it for an exact figure.
 - **Your own foods:** type a name and its protein; it's saved to **My foods** for one-tap adds.
 - **Last 7 days:** each day against the target. Tap a day to see or edit it.
 
