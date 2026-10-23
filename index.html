@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
-/* Layout: one narrow column like a phone app. Today's total on top, then meals, the food picker, history, target and account. */
+/* Layout: one narrow column like a phone app. Today's total on top, then meals, the food picker, history, the example week, target and account. */
 :root {
   --bg: #eef3f0;
   --surface: #ffffff;
@@ -159,6 +159,15 @@ h2 { font-family: var(--display); font-stretch: 112%; font-size: 15px; font-weig
 .hcol .hv { font-size: 11px; font-family: var(--mono); }
 .hcol[aria-current="true"] small { color: var(--ink); font-weight: 700; }
 
+/* Example week: two proteins a day, the selected day highlighted */
+.plan { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.plan li { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; }
+.plan li > span { font-size: 13px; font-weight: 650; color: var(--muted); }
+.plan li[aria-current="date"] { background: var(--accent-soft); }
+.plan li[aria-current="date"] > span { color: var(--ink); }
+.plan .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.plan .tags b { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 600; }
+
 /* Target */
 details.panel > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
 details.panel > summary::-webkit-details-marker { display: none; }
@@ -245,6 +254,14 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       <span class="note" id="avg"></span>
     </div>
     <div class="hist" id="hist"></div>
+  </section>
+
+  <section class="panel" aria-label="Example week">
+    <div class="panel-head">
+      <h2>Example week</h2>
+      <span class="note">Two proteins a day</span>
+    </div>
+    <ul class="plan" id="plan"></ul>
   </section>
 
   <details class="panel" id="settings">
@@ -404,6 +421,16 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       ["curry", "Ready-meal curry", "1 pack", 25],
       ["milk", "Semi-skimmed milk", "250 ml", 9],
     ]},
+  ];
+  // An example week of main proteins, Monday first.
+  const PLAN = [
+    ["Mon", "Chicken", "Sardines"],
+    ["Tue", "Chicken", "White fish"],
+    ["Wed", "Red meat", "Chicken"],
+    ["Thu", "Chicken", "Sardines"],
+    ["Fri", "White fish", "Red meat"],
+    ["Sat", "Chicken", "Sardines"],
+    ["Sun", "Red meat", "Chicken"],
   ];
   const DEFAULT_PROFILE = { weightKg: null, heightCm: null, targetKg: null, gPerKg: 1.8 };
   const FACTORS = [1.6, 1.8, 2.0, 2.2];
@@ -768,6 +795,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
 
     renderGroups();
     renderHistory();
+    renderPlan();
     renderSettings();
   }
 
@@ -823,6 +851,13 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const avg = logged.length ? Math.round(logged.reduce((a, b) => a + b, 0) / logged.length) : 0;
     $("avg").textContent = !logged.length ? (tgt ? "Dashed line = your target" : "")
       : tgt ? `Avg ${avg} g · hit ${totals.filter(v => v >= tgt).length}/7 · dashed line = target` : `Avg ${avg} g`;
+  }
+
+  function renderPlan() {
+    const [y, m, d] = state.date.split("-").map(Number);
+    const day = (new Date(y, m - 1, d).getDay() + 6) % 7;   // Monday = 0
+    $("plan").replaceChildren(...PLAN.map(([name, ...proteins], i) =>
+      el("li", { "aria-current": i === day ? "date" : null }, el("span", {}, name), el("div", { class: "tags" }, proteins.map(p => el("b", {}, p))))));
   }
 
   function renderSettings() {
