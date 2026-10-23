@@ -22,6 +22,8 @@ Live at **https://alirghase.github.io/protein-log/**.
   at their typical cooked weight, so you can log without scales; weigh it for an exact figure.
 - **Your own foods:** type a name and its protein; it's saved to **My foods** for one-tap adds.
 - **Last 7 days:** each day against the target. Tap a day to see or edit it.
+- **Example week:** a sample rotation of two main proteins a day (chicken, sardines, white fish and
+  red meat), with the day you're viewing highlighted.
 
 ## Saving
 
