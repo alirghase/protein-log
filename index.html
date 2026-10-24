@@ -244,7 +244,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
           <button class="primary" type="submit">Add</button>
         </div>
       </form>
-      <p class="hint">Figures are typical UK label values, meat and fish by raw weight. Check your packs and add your own if they differ.</p>
+      <p class="hint">Figures are typical UK label values; meat and fish logged by weight use the cooked weight. Check your packs and add your own if they differ.</p>
     </div>
   </section>
 
@@ -304,7 +304,6 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       ["oats", "Porridge oats", "80 g", 10],
       ["scoop", "Protein scoop", "1 scoop", 45],
       ["yog", "Protein yoghurt", "1 pot", 50],
-      ["rice", "Rice pouch", "250 g pouch", 7],
       ["banana", "Banana", "1 medium", 1],
       ["apple", "Apple", "1 medium", 0.5],
       ["veg", "Frozen veg", "Handful (80 g)", 3],
@@ -324,31 +323,14 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     { group: "Fish", items: [
       ["sardines", "Sardines", "1 can (~120 g)", 21],
       ["tuna", "Tuna, drained", "1 can (~110 g)", 25],
-      ["salmon", "Salmon fillet", "1 fillet (~120 g)", 24],
-      ["cod", "Cod fillet", "1 fillet (~125 g)", 22],
-      ["basa", "Basa fillet", "1 fillet (~150 g)", 21],
       ["prawns", "King prawns", "150 g", 21],
     ]},
-    // Logged by weight: the number is protein per 100 g raw, and tapping asks for grams.
-    { group: "Meat (by weight, raw)", per100: true, items: [
-      ["chicken", "Chicken breast", "raw", 23],
-      ["thigh", "Chicken thigh, boneless", "raw", 18],
-      ["turkey", "Turkey breast steak", "raw", 24],
-      ["tmince", "Turkey mince 2%", "raw", 22],
-      ["bmince", "Beef mince 5%", "raw", 21],
-      ["steak", "Rump steak", "raw", 22],
-    ]},
-    // Air-fried, weighed after cooking: water cooks off, so protein per 100 g is higher than raw.
+    // Logged by weight: air-fried, weighed after cooking, so the number is protein per 100 g cooked.
+    // Foods in the Aldi range below aren't repeated here.
     { group: "Air-fried (by weight, cooked)", per100: true, items: [
-      ["af-chicken", "Chicken breast, air-fried", "cooked", 31],
       ["af-thigh", "Chicken thigh, air-fried", "cooked", 25],
-      ["af-turkey", "Turkey breast steak, air-fried", "cooked", 30],
       ["af-bmince", "Beef mince 5%, air-fried", "cooked", 27],
       ["af-tmince", "Turkey mince 2%, air-fried", "cooked", 29],
-      ["af-fish", "Cod or pollock, air-fried", "cooked", 23],
-      ["af-basa", "Basa, air-fried", "cooked", 19],
-      ["af-salmon", "Salmon (farmed), air-fried", "cooked", 22],
-      ["af-prawns", "Prawns, air-fried", "cooked", 24],
     ]},
     // Aldi range, air-fried and weighed cooked (hot smoked fish is ready to eat, weighed as is).
     // The last field is one piece's typical cooked weight from the pack, for one-tap adds without scales
