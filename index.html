@@ -382,7 +382,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     // Logged by weight: air-fried, weighed after cooking, so the number is protein per 100 g cooked.
     // Foods in the Aldi range below aren't repeated here.
     { group: "Air-fried (by weight, cooked)", per100: true, items: [
-      ["af-chicken", "Air-fried chicken breast (Aldi 2 kg bag)", "cooked", 31],
+      ["af-chicken", "Chicken breast fillet", "cooked", 31],
       ["af-bmince", "Beef mince 5%, air-fried", "cooked", 27],
       ["af-tmince", "Turkey mince 2%, air-fried", "cooked", 29],
     ]},
@@ -856,13 +856,14 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   function renderGroups() {
     const norm = t => t.toLowerCase().replace(/-/g, " ");   // "air fried" finds "air-fried"
     const q = norm(state.query.trim());
+    const words = q.split(/\s+/).filter(Boolean);   // every word must appear, in any order
     const groups = $("groups"); groups.replaceChildren();
     const all = [];
     if (state.custom.length) all.push({ group: "My foods", custom: true, items: state.custom.map(c => [c.id, c.name, c.serving || "", c.protein]) });
     all.push(...PRESETS);
     let shown = 0;
     for (const g of all) {
-      const items = g.items.filter(([, name, serving]) => !q || norm(`${g.group} ${name} ${serving}`).includes(q));
+      const items = g.items.filter(([, name, serving]) => !q || words.every(w => norm(`${g.group} ${name} ${serving}`).includes(w)));
       if (!items.length) continue;
       shown += items.length;
       const tiles = el("div", { class: "tiles" });
