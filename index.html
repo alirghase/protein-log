@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Protein Log</title>
-<meta name="description" content="Log protein by meal through the day, against a daily target set from your target weight.">
+<meta name="description" content="Log protein by meal through the day, against a daily target set from your target weight, and track your waist and other measurements.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Protein Log">
@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
-/* Layout: one narrow column like a phone app. Today's total on top, then meals, the food picker, history, the example week, target and account. */
+/* Layout: one narrow column like a phone app. Today's total on top, then meals, the food picker, history, the example week, body measurements, target and account. */
 :root {
   --bg: #eef3f0;
   --surface: #ffffff;
@@ -168,6 +168,31 @@ h2 { font-family: var(--display); font-stretch: 112%; font-size: 15px; font-weig
 .plan .tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .plan .tags b { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 600; }
 
+/* Body */
+.body-big { display: flex; align-items: baseline; gap: 8px 10px; flex-wrap: wrap; }
+.body-big .val { font-family: var(--display); font-stretch: 118%; font-size: 40px; font-weight: 800; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.body-big .of { color: var(--muted); font-size: 14px; }
+.stats { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; }
+.stats b { font-family: var(--mono); font-weight: 600; }
+.spark svg { display: block; width: 100%; height: auto; overflow: visible; }
+.measures { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.measure { border: 1px solid var(--line); background: var(--bg); border-radius: 11px; padding: 9px 11px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.measure .mv { font-family: var(--mono); font-weight: 600; font-size: 15px; }
+.measure small { color: var(--muted); font-size: 12px; }
+.measure small.good { color: var(--accent); font-weight: 600; }
+.measure small.bad { color: var(--warn); font-weight: 600; }
+.bodyform { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
+.bodyform .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.howto summary { cursor: pointer; color: var(--accent); font-weight: 650; font-size: 13px; }
+.howto ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+.bhist { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 11px; }
+.bhist li { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.bhist li:last-child { border-bottom: 0; }
+.bhist .d { font-weight: 650; margin-right: 6px; }
+.bhist .vals { color: var(--muted); font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
+.bhist button { border: 0; background: transparent; color: var(--muted); font-size: 12.5px; padding: 4px 6px; border-radius: 7px; }
+.bhist button.armed { color: var(--warn); font-weight: 650; }
+
 /* Target */
 details.panel > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
 details.panel > summary::-webkit-details-marker { display: none; }
@@ -262,6 +287,35 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       <span class="note">Two proteins a day</span>
     </div>
     <ul class="plan" id="plan"></ul>
+  </section>
+
+  <section class="panel" id="body" aria-label="Body">
+    <div class="panel-head">
+      <h2>Body</h2>
+      <span class="note" id="bodyLast"></span>
+    </div>
+    <div id="bodyTop" style="display:flex;flex-direction:column;gap:12px"></div>
+    <ul class="measures" id="measures"></ul>
+    <form class="bodyform" id="bodyForm" novalidate>
+      <div class="row">
+        <span class="label">Measure</span>
+        <input class="input" type="date" id="bDate" style="width:auto" aria-label="Date measured">
+      </div>
+      <p class="hint" id="bExisting" hidden>Already measured on this date. Saving replaces it.</p>
+      <div class="fields" id="bFields"></div>
+      <div class="row">
+        <button class="primary" type="submit">Save measurements</button>
+        <span class="msg" id="bMsg" role="status"></span>
+      </div>
+      <p class="hint">Fill in only what you measured. Once a week is plenty: same day, first thing in the morning, before food.</p>
+      <details class="howto"><summary>How to measure</summary><ul id="howto"></ul></details>
+    </form>
+    <div class="field">
+      <label for="sWaistTarget">Waist target (cm)</label>
+      <input class="input" id="sWaistTarget" type="number" min="40" max="200" step="0.5" inputmode="decimal" style="max-width:140px">
+      <span class="note" id="waistAdvice"></span>
+    </div>
+    <div id="bodyHist"></div>
   </section>
 
   <details class="panel" id="settings">
@@ -414,13 +468,24 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     ["Sat", "Chicken", "Sardines"],
     ["Sun", "Red meat", "Chicken"],
   ];
-  const DEFAULT_PROFILE = { weightKg: null, heightCm: null, targetKg: null, gPerKg: 1.8 };
+  const DEFAULT_PROFILE = { weightKg: null, heightCm: null, targetKg: null, gPerKg: 1.8, waistTargetCm: null };
   const FACTORS = [1.6, 1.8, 2.0, 2.2];
+  // Body section measures. dir is which way counts as progress: -1 down, 1 up, 0 just track it.
+  const MEASURES = [
+    { id: "waist", name: "Waist", unit: "cm", dir: -1, how: "Waist: around your belly button, standing relaxed, after a normal breath out. Don’t suck in." },
+    { id: "weight", name: "Weight", unit: "kg", dir: -1, how: "Weight: after the toilet, before food or drink." },
+    { id: "neck", name: "Neck", unit: "cm", dir: 0, how: "Neck: just below the Adam’s apple, tape level. With waist and height it gives the body-fat estimate." },
+    { id: "chest", name: "Chest", unit: "cm", dir: 0, how: "Chest: across the nipples, arms by your sides, after a breath out." },
+    { id: "arm", name: "Arm, flexed", unit: "cm", dir: 1, how: "Arm: the widest part of your upper arm, flexed. Holding steady while your waist drops means you’re keeping muscle." },
+    { id: "thigh", name: "Thigh", unit: "cm", dir: 0, how: "Thigh: the widest part, standing with weight on both legs." },
+  ];
+  const RANGE = { cm: [10, 250], kg: [30, 300] };
 
   const state = {
     profile: { ...DEFAULT_PROFILE },
     custom: [],
     days: {},            // date -> entries[]
+    body: {},            // date -> { waist, weight, neck, ... }
     date: todayStr(),
     meal: defaultMeal(),
     query: "",
@@ -474,29 +539,31 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   let localOk = true;
   try { localStorage.setItem(`${KEY}:probe`, "1"); localStorage.removeItem(`${KEY}:probe`); } catch { localOk = false; }
   const readLocal = () => {
-    try { const v = JSON.parse(localStorage.getItem(KEY) || "null"); return v && typeof v === "object" ? v : { profile: null, custom: [], days: {} }; }
-    catch { return { profile: null, custom: [], days: {} }; }
+    try { const v = JSON.parse(localStorage.getItem(KEY) || "null"); return v && typeof v === "object" ? v : { profile: null, custom: [], days: {}, body: {} }; }
+    catch { return { profile: null, custom: [], days: {}, body: {} }; }
   };
   const writeLocal = () => {
     if (!localOk) return;
-    try { localStorage.setItem(KEY, JSON.stringify({ profile: state.profile, custom: state.custom, days: state.days })); } catch {}
+    try { localStorage.setItem(KEY, JSON.stringify({ profile: state.profile, custom: state.custom, days: state.days, body: state.body })); } catch {}
   };
   const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }) : null;
   let user = null;
   const must = ({ data, error }) => { if (error) throw error; return data; };
   const profileRow = () => ({
     user_id: user.id, weight_kg: state.profile.weightKg, height_cm: state.profile.heightCm, target_kg: state.profile.targetKg,
-    g_per_kg: state.profile.gPerKg, custom_foods: state.custom, saved_at: Date.now(),
+    g_per_kg: state.profile.gPerKg, waist_target_cm: state.profile.waistTargetCm, custom_foods: state.custom, saved_at: Date.now(),
   });
   const cloud = {
     async load() {
-      const [p, d] = await Promise.all([
-        sb.from("protein_profile").select("weight_kg,height_cm,target_kg,g_per_kg,custom_foods").maybeSingle(),
+      const [p, d, b] = await Promise.all([
+        sb.from("protein_profile").select("weight_kg,height_cm,target_kg,g_per_kg,waist_target_cm,custom_foods").maybeSingle(),
         sb.from("protein_days").select("date,entries").order("date", { ascending: false }).limit(1000),
+        sb.from("body_measurements").select("date,measures").order("date", { ascending: false }).limit(1000),
       ]);
-      const prof = must(p), days = must(d);
+      const prof = must(p), days = must(d), body = must(b);
       return {
-        profile: prof ? { weightKg: num(prof.weight_kg), heightCm: num(prof.height_cm), targetKg: num(prof.target_kg), gPerKg: num(prof.g_per_kg) ?? 1.8 } : null,
+        profile: prof ? { weightKg: num(prof.weight_kg), heightCm: num(prof.height_cm), targetKg: num(prof.target_kg), gPerKg: num(prof.g_per_kg) ?? 1.8, waistTargetCm: num(prof.waist_target_cm) } : null,
+        body: Object.fromEntries(body.map(r => [r.date, r.measures && typeof r.measures === "object" ? r.measures : {}])),
         custom: prof && Array.isArray(prof.custom_foods) ? prof.custom_foods : [],
         days: Object.fromEntries(days.map(r => [r.date, Array.isArray(r.entries) ? r.entries : []])),
       };
@@ -505,6 +572,11 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       const list = entries(date);
       if (!list.length) must(await sb.from("protein_days").delete().eq("date", date));
       else must(await sb.from("protein_days").upsert({ user_id: user.id, date, entries: list, saved_at: Date.now() }, { onConflict: "user_id,date" }));
+    },
+    async saveBody(date) {
+      const m = state.body[date];
+      if (!m) must(await sb.from("body_measurements").delete().eq("date", date));
+      else must(await sb.from("body_measurements").upsert({ user_id: user.id, date, measures: m, saved_at: Date.now() }, { onConflict: "user_id,date" }));
     },
     async saveProfile() { must(await sb.from("protein_profile").upsert(profileRow(), { onConflict: "user_id" })); },
   };
@@ -530,6 +602,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   function writeLocalIfSignedOut() { if (!user) writeLocal(); }
   const saveDay = date => save("day:" + date, () => cloud.saveDay(date));
   const saveProfile = () => save("profile", () => cloud.saveProfile());
+  const saveBody = date => save("body:" + date, () => cloud.saveBody(date));
 
   const banner = $("banner");
   function showError(text) { banner.className = "banner err"; banner.textContent = text; banner.hidden = false; }
@@ -548,7 +621,8 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       state.profile = { ...DEFAULT_PROFILE, ...(l.profile || {}) };
       state.custom = Array.isArray(l.custom) ? l.custom : [];
       state.days = l.days && typeof l.days === "object" ? l.days : {};
-      render(); return;
+      state.body = l.body && typeof l.body === "object" ? l.body : {};
+      render(); if (!bodyDirty) fillBodyForm(); return;
     }
     if (Object.values(flushing).some(Boolean)) return;   // don't overwrite changes still saving
     try {
@@ -558,11 +632,13 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       state.profile = { ...DEFAULT_PROFILE, ...(c.profile || {}) };
       state.custom = c.custom;
       state.days = c.days;
+      state.body = c.body;
       renderBanner();
     } catch {
       showError("Couldn’t load your log. Check your signal, then reload the page.");
     }
     render();
+    if (!bodyDirty) fillBodyForm();
   }
 
   // ---- account ----
@@ -608,12 +684,14 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       // First sign-in on this browser: move its log online. Days already online win; the local copy is set aside, not deleted.
       const mine = readLocal();
       const days = Object.entries(mine.days || {}).filter(([, list]) => Array.isArray(list) && list.length);
-      if (days.length || mine.profile || (mine.custom || []).length) {
+      const body = Object.entries(mine.body || {}).filter(([, m]) => m && typeof m === "object" && Object.keys(m).length);
+      if (days.length || body.length || mine.profile || (mine.custom || []).length) {
         try {
           if (days.length) must(await sb.from("protein_days").upsert(days.map(([date, list]) => ({ user_id: u.id, date, entries: list, saved_at: Date.now() })), { onConflict: "user_id,date", ignoreDuplicates: true }));
+          if (body.length) must(await sb.from("body_measurements").upsert(body.map(([date, m]) => ({ user_id: u.id, date, measures: m, saved_at: Date.now() })), { onConflict: "user_id,date", ignoreDuplicates: true }));
           if (mine.profile || (mine.custom || []).length) {
             const p = mine.profile || DEFAULT_PROFILE;
-            must(await sb.from("protein_profile").upsert({ user_id: u.id, weight_kg: p.weightKg, height_cm: p.heightCm, target_kg: p.targetKg, g_per_kg: p.gPerKg ?? 1.8, custom_foods: mine.custom || [], saved_at: Date.now() }, { onConflict: "user_id", ignoreDuplicates: true }));
+            must(await sb.from("protein_profile").upsert({ user_id: u.id, weight_kg: p.weightKg, height_cm: p.heightCm, target_kg: p.targetKg, g_per_kg: p.gPerKg ?? 1.8, waist_target_cm: p.waistTargetCm ?? null, custom_foods: mine.custom || [], saved_at: Date.now() }, { onConflict: "user_id", ignoreDuplicates: true }));
           }
           localStorage.setItem(`${KEY}:moved-online`, JSON.stringify(mine));
           localStorage.removeItem(KEY);
@@ -778,6 +856,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     renderGroups();
     renderHistory();
     renderPlan();
+    renderBody();
     renderSettings();
   }
 
@@ -842,6 +921,126 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       el("li", { "aria-current": i === day ? "date" : null }, el("span", {}, name), el("div", { class: "tags" }, proteins.map(p => el("b", {}, p))))));
   }
 
+  // ---- body ----
+  const shortDate = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
+  const bodyDates = () => Object.keys(state.body).sort();
+  // One measure over time, oldest first, from the dates it was measured on.
+  const series = id => bodyDates().filter(d => state.body[d][id] > 0).map(d => ({ date: d, v: Number(state.body[d][id]) }));
+  // US Navy tape method for men, in cm: usually within 3–4 points of a body scan.
+  function navyBodyFat(waist, neck, height) {
+    if (!(waist > neck && neck > 0 && height > 0)) return null;
+    const bf = 495 / (1.0324 - 0.19077 * Math.log10(waist - neck) + 0.15456 * Math.log10(height)) - 450;
+    return bf > 2 && bf < 60 ? bf : null;
+  }
+  let bodyDirty = false, armedBody = null, armTimer = null;
+  function fillBodyForm() {
+    const d = $("bDate").value || todayStr();
+    const have = state.body[d];
+    $("bExisting").hidden = !have;
+    for (const m of MEASURES) $(`b-${m.id}`).value = have?.[m.id] ?? "";
+    bodyDirty = false;
+  }
+  function spark(s, tgt) {
+    const W = 300, H = 72, L = 4, R = 40, T = 8, B = 16;
+    const vs = s.map(p => p.v).concat(tgt ? [tgt] : []);
+    let lo = Math.min(...vs), hi = Math.max(...vs);
+    if (hi - lo < 4) { const mid = (hi + lo) / 2; lo = mid - 2; hi = mid + 2; }
+    const x = i => L + (i / (s.length - 1)) * (W - L - R);
+    const y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+    const line = s.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join("");
+    const font = `font-size="10" fill="var(--muted)" font-family="IBM Plex Mono, ui-monospace, monospace"`;
+    const box = el("div", { class: "spark" });
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Waist from ${fmt(s[0].v)} to ${fmt(s.at(-1).v)} cm${tgt ? `, target ${fmt(tgt)} cm` : ""}">
+      ${tgt ? `<line x1="${L}" x2="${W - R}" y1="${y(tgt).toFixed(1)}" y2="${y(tgt).toFixed(1)}" stroke="var(--ink)" stroke-opacity=".35" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <text x="${W - R + 6}" y="${(y(tgt) + 3).toFixed(1)}" ${font}>${fmt(tgt)}</text>` : ""}
+      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${x(s.length - 1).toFixed(1)}" cy="${y(s.at(-1).v).toFixed(1)}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>
+      <text x="${L}" y="${H - 2}" ${font}>${shortDate(s[0].date)}</text>
+      <text x="${W - R}" y="${H - 2}" text-anchor="end" ${font}>${shortDate(s.at(-1).date)}</text></svg>`;
+    return box;
+  }
+  function renderBody() {
+    const p = state.profile;
+    const h = Number(p.heightCm);
+    const tgt = Number(p.waistTargetCm) > 0 ? Number(p.waistTargetCm) : null;
+    const dates = bodyDates();
+    const waist = series("waist");
+    $("bodyLast").textContent = dates.length ? `Last measured ${prettyDate(dates.at(-1))}` : "";
+
+    const top = $("bodyTop"); top.replaceChildren();
+    if (waist.length) {
+      const now = waist.at(-1).v, first = waist[0].v, left = tgt ? now - tgt : null;
+      top.append(el("div", { class: "body-big" },
+        el("span", { class: "val" }, fmt(now)),
+        el("span", { class: "of" }, tgt ? `cm waist · target ${fmt(tgt)} cm` : "cm waist"),
+        tgt ? el("span", { class: "pill" + (left <= 0 ? " done" : left <= 2 ? " close" : "") }, left <= 0 ? "Target hit" : `${fmt(left)} cm to go`) : null));
+      if (tgt && first > tgt) {
+        const pct = Math.min(100, Math.max(0, ((first - now) / (first - tgt)) * 100));
+        top.append(el("div", { class: "bar", role: "img", "aria-label": `${Math.round(pct)}% of the way from ${fmt(first)} to ${fmt(tgt)} cm` },
+          el("span", { style: `width:${pct}%;background:var(--accent)` })));
+      }
+      if (waist.length > 1) top.append(spark(waist, tgt));
+      const stats = el("div", { class: "stats" });
+      if (waist.length > 1) {
+        const d = first - now;
+        stats.append(el("span", {}, d > 0 ? "Down " : d < 0 ? "Up " : "", el("b", {}, d ? `${fmt(Math.abs(d))} cm` : "Same"), ` since ${shortDate(waist[0].date)}`));
+      }
+      if (h > 0) {
+        stats.append(el("span", {}, "Waist ÷ height ", el("b", {}, (now / h).toFixed(2)), " · under 0.50 is healthy, about 0.45 looks lean"));
+        const neck = series("neck").at(-1)?.v;
+        const bf = navyBodyFat(now, neck, h);
+        stats.append(bf != null
+          ? el("span", {}, "Body fat ≈ ", el("b", {}, `${Math.round(bf)}%`), " (US Navy tape method for men, ±3–4%)")
+          : el("span", { class: "note" }, "Add your neck to see a body-fat estimate."));
+      } else stats.append(el("span", { class: "note" }, "Add your height under Your target to see waist ÷ height and body fat."));
+      top.append(stats);
+    } else {
+      top.append(el("p", { class: "hint" }, "Measure your waist below to start. It shows fat loss better than the scale, because the muscle you build weighs something too."));
+    }
+
+    const ul = $("measures"); ul.replaceChildren();
+    for (const m of MEASURES) {
+      if (m.id === "waist") continue;
+      const s = series(m.id);
+      if (!s.length) continue;
+      const d = s.at(-1).v - s[0].v;
+      const cls = !m.dir || s.length < 2 || Math.abs(d) < 0.05 ? "" : Math.sign(d) === m.dir ? "good" : "bad";
+      ul.append(el("li", { class: "measure" },
+        el("small", {}, m.name),
+        el("span", { class: "mv" }, `${fmt(s.at(-1).v)} ${m.unit}`),
+        el("small", { class: cls }, s.length < 2 ? shortDate(s[0].date) : `${d > 0 ? "+" : d < 0 ? "−" : "±"}${fmt(Math.abs(d))} since ${shortDate(s[0].date)}`),
+        m.id === "weight" && p.targetKg > 0 ? el("small", {}, `Target ${fmt(p.targetKg)} kg`) : null));
+    }
+
+    for (const m of MEASURES) { const last = series(m.id).at(-1); $(`b-${m.id}`).placeholder = last ? fmt(last.v) : m.unit; }
+    const wt = $("sWaistTarget"); if (document.activeElement !== wt) wt.value = p.waistTargetCm ?? "";
+    $("waistAdvice").textContent = h > 0
+      ? `For ${fmt(h)} cm tall: under ${Math.round(h * 0.5)} cm is the health line (half your height), and about ${Math.round(h * 0.45)} cm looks lean and athletic.`
+      : "Add your height under Your target for a suggestion.";
+
+    const hist = $("bodyHist"); hist.replaceChildren();
+    if (dates.length) {
+      const list = el("ul", { class: "bhist" });
+      for (const d of [...dates].reverse().slice(0, 12)) {
+        const vals = MEASURES.filter(m => state.body[d][m.id] > 0).map(m => `${m.name.split(",")[0]} ${fmt(state.body[d][m.id])}`).join(" · ");
+        list.append(el("li", {},
+          el("div", {}, el("span", { class: "d" }, shortDate(d)), el("span", { class: "vals" }, vals)),
+          el("div", {},
+            el("button", { type: "button", onclick: () => { $("bDate").value = d; fillBodyForm(); $("bodyForm").scrollIntoView({ behavior: "smooth", block: "center" }); } }, "Edit"),
+            el("button", { type: "button", class: armedBody === d ? "armed" : "", onclick: () => deleteBody(d) }, armedBody === d ? "Tap again to delete" : "Delete"))));
+      }
+      hist.append(el("div", { class: "group" }, el("span", { class: "label" }, "Measured"), list));
+    }
+  }
+  function deleteBody(d) {
+    clearTimeout(armTimer);
+    if (armedBody !== d) { armedBody = d; armTimer = setTimeout(() => { armedBody = null; renderBody(); }, 4000); renderBody(); return; }
+    armedBody = null;
+    delete state.body[d];
+    saveBody(d); render();
+    if ($("bDate").value === d) fillBodyForm();
+  }
+
   function renderSettings() {
     const p = state.profile;
     for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"]]) {
@@ -880,7 +1079,34 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     addEntry({ name, serving: "", protein });
     $("cName").value = ""; $("cProtein").value = "";
   });
-  for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"]]) {
+  $("bFields").append(...MEASURES.map(m => el("div", { class: "field" },
+    el("label", { for: `b-${m.id}` }, `${m.name} (${m.unit})`),
+    el("input", { class: "input", id: `b-${m.id}`, type: "number", min: String(RANGE[m.unit][0]), max: String(RANGE[m.unit][1]), step: "0.1", inputmode: "decimal" }))));
+  $("howto").append(...MEASURES.map(m => el("li", {}, m.how)));
+  $("bDate").value = $("bDate").max = todayStr();
+  $("bDate").addEventListener("change", fillBodyForm);
+  $("bFields").addEventListener("input", () => { bodyDirty = true; });
+  $("bodyForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const d = $("bDate").value, msg = $("bMsg");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d > todayStr()) { msg.className = "msg err"; msg.textContent = "Pick the date you measured."; return; }
+    const vals = {};
+    for (const m of MEASURES) {
+      const inp = $(`b-${m.id}`);
+      if (inp.value === "") continue;
+      const v = Number(inp.value), [lo, hi] = RANGE[m.unit];
+      if (!(v >= lo && v <= hi)) { msg.className = "msg err"; msg.textContent = `${m.name} should be between ${lo} and ${hi} ${m.unit}.`; inp.focus(); return; }
+      vals[m.id] = round1(v);
+    }
+    if (!Object.keys(vals).length) { msg.className = "msg err"; msg.textContent = "Enter at least one measurement."; return; }
+    state.body[d] = vals;
+    saveBody(d);
+    // The newest weigh-in also becomes "Weight now", which sets the BMI.
+    if (vals.weight && d === series("weight").at(-1)?.date) { state.profile = { ...state.profile, weightKg: vals.weight }; saveProfile(); }
+    render(); fillBodyForm();
+    msg.className = "msg"; msg.textContent = d === todayStr() ? "Saved." : `Saved for ${shortDate(d)}.`;
+  });
+  for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"], ["sWaistTarget", "waistTargetCm"]]) {
     $(id).addEventListener("change", e => {
       const v = e.target.value === "" ? null : Number(e.target.value);
       if (v !== null && !(v > 0)) return;
