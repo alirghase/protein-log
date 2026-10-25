@@ -382,6 +382,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     // Logged by weight: air-fried, weighed after cooking, so the number is protein per 100 g cooked.
     // Foods in the Aldi range below aren't repeated here.
     { group: "Air-fried (by weight, cooked)", per100: true, items: [
+      ["af-chicken", "Air-fried chicken breast (Aldi 2 kg bag)", "cooked", 31],
       ["af-bmince", "Beef mince 5%, air-fried", "cooked", 27],
       ["af-tmince", "Turkey mince 2%, air-fried", "cooked", 29],
     ]},
@@ -417,8 +418,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       ["a-mack-pep", "Hot smoked peppered mackerel", "ready to eat", 19, ["fillet", 100]],
       ["a-mack-sweet", "Hot smoked sweetcure mackerel", "ready to eat", 18, ["fillet", 100]],
     ]},
-    { group: "Aldi chicken & turkey (air-fried)", per100: true, items: [
-      ["a-chk", "Chicken breast fillets (2 kg bag)", "cooked", 31, ["fillet", 115]],
+    { group: "Aldi turkey (air-fried)", per100: true, items: [
       ["a-turkey", "Turkey breast steaks 2% fat", "cooked", 30, ["steak", 85]],
     ]},
     { group: "Aldi beef & lamb (air-fried, medium)", per100: true, items: [
@@ -745,7 +745,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       for (const n of counts) chips.append(el("button", { type: "button", "data-g": String(n * pg), onclick: () => { input.value = n * pg; sync(); } },
         `${n} ${label}${n > 1 ? "s" : ""} · ${fmt(item.protein * n * pg / 100)}`));
     }
-    for (const g of [50, 100, 150, 200, 250, 300, 350, 400]) chips.append(el("button", { type: "button", "data-g": String(g), onclick: () => { input.value = g; sync(); } }, `${g} g · ${fmt(item.protein * g / 100)}`));
+    for (const g of [50, 100, 150, 200, 250, 300, 350, 400, 450, 500]) chips.append(el("button", { type: "button", "data-g": String(g), onclick: () => { input.value = g; sync(); } }, `${g} g · ${fmt(item.protein * g / 100)}`));
     const add = () => {
       const g = Math.round(Number(input.value));
       if (!(g > 0)) { input.focus(); return; }
@@ -854,14 +854,15 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   }
 
   function renderGroups() {
-    const q = state.query.trim().toLowerCase();
+    const norm = t => t.toLowerCase().replace(/-/g, " ");   // "air fried" finds "air-fried"
+    const q = norm(state.query.trim());
     const groups = $("groups"); groups.replaceChildren();
     const all = [];
     if (state.custom.length) all.push({ group: "My foods", custom: true, items: state.custom.map(c => [c.id, c.name, c.serving || "", c.protein]) });
     all.push(...PRESETS);
     let shown = 0;
     for (const g of all) {
-      const items = g.items.filter(([, name, serving]) => !q || `${g.group} ${name} ${serving}`.toLowerCase().includes(q));
+      const items = g.items.filter(([, name, serving]) => !q || norm(`${g.group} ${name} ${serving}`).includes(q));
       if (!items.length) continue;
       shown += items.length;
       const tiles = el("div", { class: "tiles" });
