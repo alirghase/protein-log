@@ -85,7 +85,14 @@ h2 { font-family: var(--display); font-stretch: 112%; font-size: 15px; font-weig
 .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; }
 .cal { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; }
 .cal .big .val { font-size: 30px; }
-.cal .bar { height: 10px; border-radius: 5px; }
+.cal .bar { height: 10px; border-radius: 5px; overflow: visible; position: relative; }
+.cal .bar span:first-child { border-radius: 5px 0 0 5px; }
+.cal .bar .mark { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px dashed var(--ink); opacity: .45; }
+.cal .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.group-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.quick { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 4px; }
+.weighin { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.weighin input { width: 96px; }
 
 /* Meals */
 .meals { display: flex; flex-direction: column; gap: 10px; }
@@ -255,10 +262,14 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     <div class="cal">
       <div class="big">
         <span class="val" id="kcal">0</span>
-        <span class="of">kcal eaten of <span class="num" id="burn">–</span> burned</span>
+        <span class="of">of <span class="num" id="kcalTarget">–</span> kcal target</span>
         <button class="pill" id="kcalStatus" type="button">Estimate your burn</button>
       </div>
-      <div class="bar" id="kbar" role="img" aria-label="Calories against burn"></div>
+      <div class="bar" id="kbar" role="img" aria-label="Calories against target"></div>
+      <div class="row">
+        <span class="note" id="dayBurn"></span>
+        <label class="check"><input type="checkbox" id="futsal"> Played futsal</label>
+      </div>
       <span class="note" id="kcalNote"></span>
     </div>
   </section>
@@ -291,8 +302,9 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   <section class="panel" aria-label="Last 7 days">
     <div class="panel-head">
       <h2>Last 7 days</h2>
-      <span class="note" id="avg"></span>
+      <div class="seg" id="chartSeg" role="group" aria-label="Chart shows"></div>
     </div>
+    <span class="note" id="avg"></span>
     <div class="hist" id="hist"></div>
     <span class="note" id="avgKcal"></span>
   </section>
@@ -310,6 +322,12 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       <h2>Body</h2>
       <span class="note" id="bodyLast"></span>
     </div>
+    <form class="weighin" id="weighForm" novalidate>
+      <label class="label" for="wKg">Weigh-in today</label>
+      <input class="input" id="wKg" type="number" min="30" max="300" step="0.1" inputmode="decimal" placeholder="kg">
+      <button class="primary" type="submit">Save</button>
+      <span class="note" id="wNote"></span>
+    </form>
     <div id="bodyTop" style="display:flex;flex-direction:column;gap:12px"></div>
     <ul class="measures" id="measures"></ul>
     <form class="bodyform" id="bodyForm" novalidate>
@@ -491,7 +509,10 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     profile: { ...DEFAULT_PROFILE },
     custom: [],
     days: {},            // date -> entries[]
+    extras: {},          // date -> { futsal: true }
+    gym: {},             // date -> Gym Plan session ids logged that day (signed in only)
     body: {},            // date -> { waist, weight, neck, ... }
+    chart: "protein",
     date: todayStr(),
     meal: defaultMeal(),
     query: "",
@@ -531,7 +552,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   // What a day burns, estimated. Resting burn is Katch–McArdle (from lean mass) when the Body section gives a
   // body-fat estimate, otherwise Mifflin–St Jeor for men. A desk day is resting × 1.2, which already covers about
   // 5,000 steps (the usual cut-off for "sedentary"); steps beyond that cost about 0.5 kcal per kg per km walked,
-  // with a stride of 41.5% of height. Gym sessions aren't counted, so gym days burn more than this.
+  // with a stride of 41.5% of height. Gym sessions and futsal come on top (dayBurn).
   const DESK_STEPS = 5000;
   function burn(p = state.profile) {
     const w = Number(p.weightKg), h = Number(p.heightCm), age = Number(p.age);
@@ -543,9 +564,58 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const walk = 0.5 * w * Math.max(0, steps - DESK_STEPS) * h * 0.415 / 100000;
     const r10 = n => Math.round(n / 10) * 10;
     const parts = { rest: r10(rest), daily: r10(rest * 0.2), walk: r10(walk) };
-    return { ...parts, total: parts.rest + parts.daily + parts.walk, steps, bf };
+    return { ...parts, total: parts.rest + parts.daily + parts.walk, steps, bf, w };
   }
-  const GRAMS_KEY = "protein-log:last-grams";
+  // Net cost on top of the desk day, in kcal per kg of body weight. A gym visit is 45 min of weights
+  // (net 2.5 MET) then 30 min of stairs (net 7 MET); futsal is about an hour at net 6 MET.
+  const GYM_PER_KG = 2.5 * 0.75 + 7 * 0.5, FUTSAL_PER_KG = 6;
+  const SESSIONS = { legs: "Legs", push: "Push", pull: "Pull", full: "Full body" };
+  function dayBurn(date, b = burn()) {
+    if (!b) return null;
+    const sessions = state.gym[date] || [];
+    const gym = Math.round(sessions.length * GYM_PER_KG * b.w / 10) * 10;
+    const futsal = state.extras[date]?.futsal ? Math.round(FUTSAL_PER_KG * b.w / 10) * 10 : 0;
+    return { ...b, sessions, gym, futsal, total: b.total + gym + futsal };
+  }
+  const daysBetween = (a, b) => { const t = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((t(b) - t(a)) / 864e5); };
+  // Real burn from your own data over the last 28 days: what you ate on average, plus the energy in the
+  // weight you lost (about 7,700 kcal a kg). The weight trend is a least-squares line through the weigh-ins,
+  // so one salty day doesn't swing it. Needs 6+ weigh-ins over 14+ days and food logged on 80% of those days.
+  const REAL = { weighIns: 6, days: 14, logged: 0.8 };
+  function realBurn() {
+    const to = shiftDate(todayStr(), -1), from = shiftDate(to, -27);
+    const ws = series("weight").filter(p => p.date >= from && p.date <= to);
+    const start = ws[0]?.date;
+    const period = start ? daysBetween(start, to) + 1 : 0;
+    const dates = start ? Array.from({ length: period }, (_, i) => shiftDate(start, i)) : [];
+    const logged = dates.filter(d => entries(d).length);
+    const spread = ws.length ? daysBetween(start, ws.at(-1).date) : 0;
+    const waist = series("waist").filter(p => p.date >= from && p.date <= to);
+    const out = { weighIns: ws.length, spread, logged: logged.length, period, waistChange: waist.length > 1 ? waist.at(-1).v - waist[0].v : null };
+    if (ws.length < REAL.weighIns || spread < REAL.days || logged.length < REAL.logged * period) return { ...out, ready: false };
+    const xs = ws.map(p => daysBetween(start, p.date)), mx = xs.reduce((a, b) => a + b) / xs.length, my = ws.reduce((a, p) => a + p.v, 0) / ws.length;
+    const slope = xs.reduce((a, x, i) => a + (x - mx) * (ws[i].v - my), 0) / xs.reduce((a, x) => a + (x - mx) ** 2, 0);   // kg a day
+    const eaten = logged.reduce((a, d) => a + kcalOf(entries(d)).sum, 0) / logged.length;
+    return { ...out, ready: true, eaten, perWeek: slope * 7, total: Math.round((eaten - slope * 7700) / 10) * 10 };
+  }
+  // The daily calorie target: your average burn minus 500 (about 0.5 kg of fat a week), the same every day
+  // so gym days don't mean eating more. Average burn is your real burn once there's enough data, otherwise
+  // the formula plus your gym and futsal averaged over the days logged so far (up to 28).
+  const DEFICIT = 500;
+  function calTarget() {
+    const b = burn();
+    const real = realBurn();
+    if (real.ready) return { avg: real.total, target: real.total - DEFICIT, source: "real", real, b };
+    if (!b) return null;
+    const today = todayStr();
+    const first = [...Object.keys(state.days), ...Object.keys(state.gym), ...Object.keys(state.extras)].filter(d => d <= today).sort()[0] || today;
+    const n = Math.min(28, Math.max(7, daysBetween(first, today) + 1));
+    let extra = 0;
+    for (let i = 0; i < n; i++) { const d = dayBurn(shiftDate(today, -i), b); extra += d.gym + d.futsal; }
+    const avg = b.total + Math.round(extra / n / 10) * 10;
+    return { avg, target: avg - DEFICIT, source: "formula", real, b, n, extra: avg - b.total };
+  }
+  const GRAMS_KEY = "protein-log:last-grams", CHART_KEY = "protein-log:chart";
   const lastGrams = (name, fallback = 200) => { try { return JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}")[name] || fallback; } catch { return fallback; } };
   const rememberGrams = (name, g) => { try { const m = JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}"); m[name] = g; localStorage.setItem(GRAMS_KEY, JSON.stringify(m)); } catch {} };
   const $ = id => document.getElementById(id);
@@ -571,12 +641,12 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   let localOk = true;
   try { localStorage.setItem(`${KEY}:probe`, "1"); localStorage.removeItem(`${KEY}:probe`); } catch { localOk = false; }
   const readLocal = () => {
-    try { const v = JSON.parse(localStorage.getItem(KEY) || "null"); return v && typeof v === "object" ? v : { profile: null, custom: [], days: {}, body: {} }; }
-    catch { return { profile: null, custom: [], days: {}, body: {} }; }
+    try { const v = JSON.parse(localStorage.getItem(KEY) || "null"); return v && typeof v === "object" ? v : { profile: null, custom: [], days: {}, extras: {}, body: {} }; }
+    catch { return { profile: null, custom: [], days: {}, extras: {}, body: {} }; }
   };
   const writeLocal = () => {
     if (!localOk) return;
-    try { localStorage.setItem(KEY, JSON.stringify({ profile: state.profile, custom: state.custom, days: state.days, body: state.body })); } catch {}
+    try { localStorage.setItem(KEY, JSON.stringify({ profile: state.profile, custom: state.custom, days: state.days, extras: state.extras, body: state.body })); } catch {}
   };
   const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }) : null;
   let user = null;
@@ -588,24 +658,29 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   });
   const cloud = {
     async load() {
-      const [p, d, b] = await Promise.all([
+      const [p, d, b, g] = await Promise.all([
         sb.from("protein_profile").select("weight_kg,height_cm,target_kg,g_per_kg,waist_target_cm,age,steps_per_day,custom_foods").maybeSingle(),
-        sb.from("protein_days").select("date,entries").order("date", { ascending: false }).limit(1000),
+        sb.from("protein_days").select("date,entries,extras").order("date", { ascending: false }).limit(1000),
         sb.from("body_measurements").select("date,measures").order("date", { ascending: false }).limit(1000),
+        sb.from("workouts").select("date,session").gte("date", shiftDate(todayStr(), -60)),   // Gym Plan's log, for the burn
       ]);
+      const gym = {};
+      for (const r of g.error ? [] : g.data) (gym[r.date] ||= []).push(r.session);
       const prof = must(p), days = must(d), body = must(b);
       return {
         profile: prof ? { weightKg: num(prof.weight_kg), heightCm: num(prof.height_cm), targetKg: num(prof.target_kg), gPerKg: num(prof.g_per_kg) ?? 1.8, waistTargetCm: num(prof.waist_target_cm),
           age: num(prof.age), stepsPerDay: num(prof.steps_per_day) ?? DEFAULT_PROFILE.stepsPerDay } : null,
         body: Object.fromEntries(body.map(r => [r.date, r.measures && typeof r.measures === "object" ? r.measures : {}])),
         custom: prof && Array.isArray(prof.custom_foods) ? prof.custom_foods : [],
-        days: Object.fromEntries(days.map(r => [r.date, Array.isArray(r.entries) ? r.entries : []])),
+        days: Object.fromEntries(days.filter(r => Array.isArray(r.entries) && r.entries.length).map(r => [r.date, r.entries])),
+        extras: Object.fromEntries(days.filter(r => r.extras && Object.keys(r.extras).length).map(r => [r.date, r.extras])),
+        gym,
       };
     },
     async saveDay(date) {
-      const list = entries(date);
-      if (!list.length) must(await sb.from("protein_days").delete().eq("date", date));
-      else must(await sb.from("protein_days").upsert({ user_id: user.id, date, entries: list, saved_at: Date.now() }, { onConflict: "user_id,date" }));
+      const list = entries(date), extras = state.extras[date] || {};
+      if (!list.length && !Object.keys(extras).length) must(await sb.from("protein_days").delete().eq("date", date));
+      else must(await sb.from("protein_days").upsert({ user_id: user.id, date, entries: list, extras, saved_at: Date.now() }, { onConflict: "user_id,date" }));
     },
     async saveBody(date) {
       const m = state.body[date];
@@ -655,6 +730,8 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       state.profile = { ...DEFAULT_PROFILE, ...(l.profile || {}) };
       state.custom = Array.isArray(l.custom) ? l.custom : [];
       state.days = l.days && typeof l.days === "object" ? l.days : {};
+      state.extras = l.extras && typeof l.extras === "object" ? l.extras : {};
+      state.gym = {};
       state.body = l.body && typeof l.body === "object" ? l.body : {};
       render(); if (!bodyDirty) fillBodyForm(); return;
     }
@@ -666,6 +743,8 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       state.profile = { ...DEFAULT_PROFILE, ...(c.profile || {}) };
       state.custom = c.custom;
       state.days = c.days;
+      state.extras = c.extras;
+      state.gym = c.gym;
       state.body = c.body;
       renderBanner();
     } catch {
@@ -718,10 +797,11 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       // First sign-in on this browser: move its log online. Days already online win; the local copy is set aside, not deleted.
       const mine = readLocal();
       const days = Object.entries(mine.days || {}).filter(([, list]) => Array.isArray(list) && list.length);
+      const extrasOf = date => (mine.extras || {})[date] || {};
       const body = Object.entries(mine.body || {}).filter(([, m]) => m && typeof m === "object" && Object.keys(m).length);
       if (days.length || body.length || mine.profile || (mine.custom || []).length) {
         try {
-          if (days.length) must(await sb.from("protein_days").upsert(days.map(([date, list]) => ({ user_id: u.id, date, entries: list, saved_at: Date.now() })), { onConflict: "user_id,date", ignoreDuplicates: true }));
+          if (days.length) must(await sb.from("protein_days").upsert(days.map(([date, list]) => ({ user_id: u.id, date, entries: list, extras: extrasOf(date), saved_at: Date.now() })), { onConflict: "user_id,date", ignoreDuplicates: true }));
           if (body.length) must(await sb.from("body_measurements").upsert(body.map(([date, m]) => ({ user_id: u.id, date, measures: m, saved_at: Date.now() })), { onConflict: "user_id,date", ignoreDuplicates: true }));
           if (mine.profile || (mine.custom || []).length) {
             const p = mine.profile || DEFAULT_PROFILE;
@@ -741,15 +821,34 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   // ---- actions ----
   let lastAdded = null, toastTimer = null;
   function addEntry(item) {
+    addEntries([{ ...item, meal: state.meal }], `Added ${item.name} to ${MEALS.find(m => m.id === state.meal).name}`);
+  }
+  // Several foods in one go (staples, copy yesterday); Undo takes them all back.
+  function addEntries(items, msg) {
     const date = state.date;
-    const kcal = item.kcal != null && item.kcal !== "" ? { kcal: Number(item.kcal) } : {};
-    const entry = item.grams
-      ? { id: uid(), meal: state.meal, name: item.name, serving: item.serving || "", protein: Number(item.protein), ...kcal, per100: true, grams: item.grams, t: Date.now() }
-      : { id: uid(), meal: state.meal, name: item.name, serving: item.serving || "", protein: Number(item.protein), ...kcal, qty: 1, t: Date.now() };
-    state.days[date] = [...entries(date), entry];
+    const added = items.map(item => {
+      const kcal = item.kcal != null && item.kcal !== "" ? { kcal: Number(item.kcal) } : {};
+      const base = { id: uid(), meal: item.meal, name: item.name, serving: item.serving || "", protein: Number(item.protein), ...kcal };
+      return item.grams ? { ...base, per100: true, grams: item.grams, t: Date.now() } : { ...base, qty: item.qty || 1, t: Date.now() };
+    });
+    state.days[date] = [...entries(date), ...added];
     saveDay(date); render();
-    lastAdded = { date, id: entry.id };
-    toast(`Added ${item.name} to ${MEALS.find(m => m.id === state.meal).name}`);
+    lastAdded = { date, ids: added.map(e => e.id) };
+    toast(msg);
+  }
+  const PRESET_BY_ID = new Map(PRESETS.flatMap(g => g.items.map(([id, name, serving, protein, kcal]) => [id, { name, serving, protein, kcal }])));
+  // The usual day's staples. Rice is left to pick, because the pouch changes.
+  const STAPLES = [["breakfast", "oats"], ["breakfast", "honey"], ["breakfast", "scoop"], ["snack", "yog"], ["snack", "banana"]];
+  const logStaples = () => addEntries(STAPLES.map(([meal, id]) => ({ ...PRESET_BY_ID.get(id), meal })), "Added the staples: porridge, honey, scoop, yoghurt and banana");
+  function copyYesterday() {
+    const prev = entries(shiftDate(state.date, -1));
+    addEntries(prev.map(({ id, t, ...e }) => e), `Copied ${prev.length} food${prev.length === 1 ? "" : "s"} from the day before`);
+  }
+  function setExtra(date, key, on) {
+    const x = { ...(state.extras[date] || {}) };
+    if (on) x[key] = true; else delete x[key];
+    if (Object.keys(x).length) state.extras[date] = x; else delete state.extras[date];
+    saveDay(date); render();
   }
   function changeQty(id, delta) {
     const date = state.date;
@@ -821,7 +920,12 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { $("toast").hidden = true; lastAdded = null; }, 4000);
   }
   $("toastUndo").addEventListener("click", () => {
-    if (lastAdded) removeEntry(lastAdded.id, lastAdded.date);
+    if (lastAdded) {
+      const { date, ids } = lastAdded;
+      state.days[date] = entries(date).filter(e => !ids.includes(e.id));
+      if (!state.days[date].length) delete state.days[date];
+      saveDay(date); render();
+    }
     lastAdded = null; $("toast").hidden = true;
   });
 
@@ -853,33 +957,51 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     }
     bar.setAttribute("aria-label", tgt ? `${fmt(total)} of ${tgt} grams` : `${fmt(total)} grams`);
 
-    // calories against the day's estimated burn
+    // calories against the daily target (average burn − 500), with the day's own burn underneath
     const { sum: kIn, missing } = kcalOf(list);
-    const b = burn();
+    const ct = calTarget();
+    const db = dayBurn(state.date);
     $("kcal").textContent = kc(kIn);
-    $("burn").textContent = b ? `≈ ${kc(b.total)}` : "–";
+    $("kcalTarget").textContent = ct ? kc(ct.target) : "–";
     const ks = $("kcalStatus");
-    if (!b) { ks.className = "pill"; ks.textContent = "Estimate your burn"; }
+    if (!ct) { ks.className = "pill"; ks.textContent = "Estimate your burn"; }
     else {
-      const left = b.total - kIn;
-      ks.className = "pill" + (left < 0 ? " over" : left >= 300 ? " close" : "");
-      ks.textContent = left < 0 ? `${kc(-left)} over burn` : `${kc(left)} under burn`;
+      const left = ct.target - kIn;
+      ks.className = "pill" + (left < 0 ? " over" : " close");
+      ks.textContent = left < 0 ? `${kc(-left)} over target` : `${kc(left)} left`;
     }
     const kbar = $("kbar"); kbar.replaceChildren();
-    const kscale = Math.max(b?.total || 0, kIn) || 1;
-    const within = b ? Math.min(kIn, b.total) : kIn;
+    const kscale = Math.max(ct?.target || 0, kIn) || 1;
+    const within = ct ? Math.min(kIn, ct.target) : kIn;
     if (within > 0) kbar.append(el("span", { style: `width:${(within / kscale) * 100}%;background:var(--accent)` }));
-    if (b && kIn > b.total) kbar.append(el("span", { style: `width:${((kIn - b.total) / kscale) * 100}%;background:var(--warn)` }));
-    kbar.setAttribute("aria-label", b ? `${kc(kIn)} of about ${kc(b.total)} calories burned` : `${kc(kIn)} calories`);
+    if (ct && kIn > ct.target) {
+      kbar.append(el("span", { style: `width:${((kIn - ct.target) / kscale) * 100}%;background:var(--warn)` }));
+      kbar.append(el("span", { class: "mark", style: `left:${(ct.target / kscale) * 100}%` }));
+    }
+    kbar.setAttribute("aria-label", ct ? `${kc(kIn)} of a ${kc(ct.target)} calorie target` : `${kc(kIn)} calories`);
+    $("futsal").checked = !!state.extras[state.date]?.futsal;
+    // With a real burn, the formula's day total would disagree with it, so only the day's activity shows.
+    const acts = db ? [db.gym ? `gym (${db.sessions.map(s => SESSIONS[s] || s).join(" + ")}) +${kc(db.gym)}` : "", db.futsal ? `futsal +${kc(db.futsal)}` : ""].filter(Boolean).join(", ") : "";
+    const when = state.date === todayStr() ? "Today" : prettyDate(state.date);
+    $("dayBurn").textContent = !db ? "" : ct?.source === "real" ? (acts ? `${when}: ${acts}` : "")
+      : `${when} you burn ≈ ${kc(db.total)}${acts ? ` (${acts})` : ""}`;
     $("kcalNote").textContent = [
-      b ? `Burn = resting ${kc(b.rest)} + daily life ${kc(b.daily)} + ${b.steps.toLocaleString("en-GB")} steps ${kc(b.walk)}. Gym not counted, so gym days burn more.`
-        : "Add your age, weight and height under Your target and burn to estimate what you burn.",
+      !ct ? "Add your age, weight and height under Your target and burn to set a calorie target."
+        : ct.source === "real" ? `Target = your real burn ${kc(ct.avg)} − ${DEFICIT}.`
+        : `Target = average burn ${kc(ct.avg)} − ${DEFICIT}. Real burn from your data: ${Math.min(ct.real.weighIns, REAL.weighIns)}/${REAL.weighIns} weigh-ins, ${Math.min(ct.real.spread, REAL.days)}/${REAL.days} days.`,
+      ct && !user ? "Sign in to count your Gym Plan sessions." : "",
       missing ? `${missing} food${missing === 1 ? " has" : "s have"} no calories, so the total is low.` : "",
     ].filter(Boolean).join(" ");
 
     // meals
     const meals = $("meals"); meals.replaceChildren();
-    if (!list.length) meals.append(el("p", { class: "hint", style: "margin:0 4px" }, "Nothing logged yet. Pick a meal below, then tap a food to add it."));
+    if (!list.length) {
+      meals.append(el("p", { class: "hint", style: "margin:0 4px" }, "Nothing logged yet. Pick a meal below, then tap a food to add it, or:"));
+      const prevN = entries(shiftDate(state.date, -1)).length;
+      meals.append(el("div", { class: "quick" },
+        el("button", { class: "secondary", type: "button", onclick: logStaples }, "Log staples"),
+        prevN ? el("button", { class: "secondary", type: "button", onclick: copyYesterday }, `Copy the day before (${prevN})`) : null));
+    }
     for (const m of MEALS) {
       const items = list.filter(e => e.meal === m.id);
       const ul = el("ul", { class: "entries" });
@@ -949,40 +1071,49 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
         }
         tiles.append(tile);
       }
-      groups.append(el("div", { class: "group" }, el("span", { class: "label" }, g.group), tiles));
+      const head = g.group === "Staples"
+        ? el("div", { class: "group-head" }, el("span", { class: "label" }, g.group), el("button", { class: "link", type: "button", onclick: logStaples }, "+ Log all staples"))
+        : el("span", { class: "label" }, g.group);
+      groups.append(el("div", { class: "group" }, head, tiles));
     }
     if (!shown) groups.append(el("p", { class: "hint" }, `No match for "${state.query}". Add it below with its protein and calories.`));
   }
 
   function renderHistory() {
     const hist = $("hist"); hist.replaceChildren();
-    const tgt = targetG();
+    const cal = state.chart === "kcal";
+    const ct = calTarget();
+    const tgt = cal ? ct?.target : targetG();
+    const unit = cal ? "kcal" : "g";
     const today = todayStr();
     const days = Array.from({ length: 7 }, (_, i) => shiftDate(today, i - 6));
-    const totals = days.map(d => totalOf(entries(d)));
+    const totals = days.map(d => cal ? kcalOf(entries(d)).sum : totalOf(entries(d)));
     const max = Math.max((tgt || 0) * 1.15, ...totals) || 1;
+    // Protein is short when under the target; calories are off when over it.
+    const off = v => tgt && v > 0 && (cal ? v > tgt : v < tgt);
     days.forEach((d, i) => {
       const v = totals[i];
       const [y, m, dd] = d.split("-").map(Number);
       const lbl = d === today ? "Today" : new Date(y, m - 1, dd).toLocaleDateString("en-GB", { weekday: "short" });
       const stack = el("div", { class: "stack" },
         tgt ? el("div", { class: "tline", style: `bottom:${(tgt / max) * 100}%` }) : null,
-        el("div", { class: "fill" + (tgt && v < tgt ? " under" : ""), style: `height:${(v / max) * 100}%` }));
-      hist.append(el("button", { class: "hcol", type: "button", "aria-current": String(d === state.date), "aria-label": `${prettyDate(d)}: ${fmt(v)} grams`, onclick: () => { state.date = d; render(); } },
-        el("span", { class: "hv" }, v ? fmt(Math.round(v)) : "–"), stack, el("small", {}, lbl)));
+        el("div", { class: "fill" + (off(v) ? " under" : ""), style: `height:${(v / max) * 100}%` }));
+      hist.append(el("button", { class: "hcol", type: "button", "aria-current": String(d === state.date), "aria-label": `${prettyDate(d)}: ${Math.round(v)} ${unit}`, onclick: () => { state.date = d; render(); } },
+        el("span", { class: "hv" }, v ? String(Math.round(v)) : "–"), stack, el("small", {}, lbl)));
     });
+    const seg = $("chartSeg"); seg.replaceChildren();
+    for (const [id, name] of [["protein", "Protein"], ["kcal", "Calories"]]) seg.append(el("button", { type: "button", "aria-pressed": String(state.chart === id), onclick: () => { state.chart = id; try { localStorage.setItem(CHART_KEY, id); } catch {} renderHistory(); } }, name));
     const logged = totals.filter(v => v > 0);
     const avg = logged.length ? Math.round(logged.reduce((a, b) => a + b, 0) / logged.length) : 0;
     $("avg").textContent = !logged.length ? (tgt ? "Dashed line = your target" : "")
-      : tgt ? `Avg ${avg} g · hit ${totals.filter(v => v >= tgt).length}/7 · dashed line = target` : `Avg ${avg} g`;
-    // Calories: today isn't counted until it's over.
+      : tgt ? `Avg ${kc(avg)} ${unit} · ${cal ? "within target" : "hit"} ${totals.filter(v => v > 0 && !off(v)).length}/7 · dashed line = target` : `Avg ${kc(avg)} ${unit}`;
+    // Calories against the average burn: today isn't counted until it's over.
     const done = days.filter(d => d < today && entries(d).length);
-    const b = burn();
     const avgK = done.length ? done.reduce((s, d) => s + kcalOf(entries(d)).sum, 0) / done.length : 0;
-    const gap = b ? b.total - avgK : 0;
+    const gap = ct ? ct.avg - avgK : 0;
     $("avgKcal").textContent = !done.length ? "Calories: the average shows once you’ve logged a full day (today counts when it’s over)."
       : `Calories: avg ${kc(avgK)} a day over ${done.length} logged day${done.length === 1 ? "" : "s"}`
-        + (b ? ` · ${kc(Math.abs(gap))} ${gap >= 0 ? "under" : "over"} your ≈ ${kc(b.total)} burn, about ${fmt(Math.abs(gap) * 7 / 7700)} kg of fat a week ${gap >= 0 ? "lost" : "gained"} (gym not counted).` : ".")
+        + (ct ? ` · ${kc(Math.abs(gap))} ${gap >= 0 ? "under" : "over"} your ≈ ${kc(ct.avg)} ${ct.source === "real" ? "real " : "average "}burn, about ${fmt(Math.abs(gap) * 7 / 7700)} kg of fat a week ${gap >= 0 ? "lost" : "gained"}.` : ".")
         + (done.some(d => kcalOf(entries(d)).missing) ? " Some foods those days have no calories, so the average is low." : "");
   }
 
@@ -1012,6 +1143,18 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     for (const m of MEASURES) $(`b-${m.id}`).value = have?.[m.id] ?? "";
     bodyDirty = false;
   }
+  // A small trend line for a measurement tile: no labels, coloured by whether it's moving the right way.
+  function miniSpark(s, cls) {
+    const W = 120, H = 26, P = 3;
+    let lo = Math.min(...s.map(p => p.v)), hi = Math.max(...s.map(p => p.v));
+    if (hi - lo < 1) { const mid = (hi + lo) / 2; lo = mid - 0.5; hi = mid + 0.5; }
+    const x = i => P + (i / (s.length - 1)) * (W - 2 * P), y = v => P + (1 - (v - lo) / (hi - lo)) * (H - 2 * P);
+    const color = cls === "good" ? "var(--accent)" : cls === "bad" ? "var(--warn)" : "var(--muted)";
+    const box = el("div", { class: "spark" });
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${s.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join("")}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${x(s.length - 1).toFixed(1)}" cy="${y(s.at(-1).v).toFixed(1)}" r="3" fill="${color}"/></svg>`;
+    return box;
+  }
   function spark(s, tgt) {
     const W = 300, H = 72, L = 4, R = 40, T = 8, B = 16;
     const vs = s.map(p => p.v).concat(tgt ? [tgt] : []);
@@ -1039,6 +1182,13 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const waist = series("waist");
     $("bodyLast").textContent = dates.length ? `Last measured ${prettyDate(dates.at(-1))}` : "";
 
+    // Quick weigh-in: the 7-day average against the week before, since single days swing with water.
+    const ws = series("weight"), today = todayStr();
+    const avgIn = (a, b) => { const v = ws.filter(p => p.date > a && p.date <= b).map(p => p.v); return v.length ? v.reduce((x, y) => x + y) / v.length : null; };
+    const wk = avgIn(shiftDate(today, -7), today), prevWk = avgIn(shiftDate(today, -14), shiftDate(today, -7));
+    const wi = $("wKg"); if (document.activeElement !== wi) wi.value = state.body[today]?.weight ?? "";
+    $("wNote").textContent = wk == null ? "Weigh 3–4 mornings a week: after the toilet, before food." 
+      : `7-day average ${fmt(wk)} kg` + (prevWk != null ? ` (${wk - prevWk <= 0 ? "−" : "+"}${fmt(Math.abs(wk - prevWk))} on the week before)` : "");
     const top = $("bodyTop"); top.replaceChildren();
     if (waist.length) {
       const now = waist.at(-1).v, first = waist[0].v, left = tgt ? now - tgt : null;
@@ -1071,7 +1221,8 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     }
 
     const ul = $("measures"); ul.replaceChildren();
-    for (const m of MEASURES) {
+    // Tape measurements first, each with its trend line; weight last and as a number only.
+    for (const m of [...MEASURES.filter(m => m.id !== "weight"), ...MEASURES.filter(m => m.id === "weight")]) {
       if (m.id === "waist") continue;
       const s = series(m.id);
       if (!s.length) continue;
@@ -1081,7 +1232,8 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
         el("small", {}, m.name),
         el("span", { class: "mv" }, `${fmt(s.at(-1).v)} ${m.unit}`),
         el("small", { class: cls }, s.length < 2 ? shortDate(s[0].date) : `${d > 0 ? "+" : d < 0 ? "−" : "±"}${fmt(Math.abs(d))} since ${shortDate(s[0].date)}`),
-        m.id === "weight" && p.targetKg > 0 ? el("small", {}, `Target ${fmt(p.targetKg)} kg`) : null));
+        m.id === "weight" && p.targetKg > 0 ? el("small", {}, `Target ${fmt(p.targetKg)} kg`) : null,
+        m.id !== "weight" && s.length > 1 ? miniSpark(s, cls) : null));
     }
 
     for (const m of MEASURES) { const last = series(m.id).at(-1); $(`b-${m.id}`).placeholder = last ? fmt(last.v) : m.unit; }
@@ -1133,14 +1285,21 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     $("calcBmi").textContent = h > 0 && w > 0
       ? `BMI now ${bmi(w)} at ${fmt(w)} kg${t > 0 ? ` · at ${fmt(t)} kg it would be ${bmi(t)}` : ""}.`
       : "Add your weight and height to see your BMI.";
-    const b = burn();
-    $("burnEq").textContent = b ? `Burn ≈ ${kc(b.rest)} + ${kc(b.daily)} + ${kc(b.walk)} = ${kc(b.total)} kcal a day` : "Add your age, weight and height to estimate what you burn.";
-    $("burnHow").textContent = b
-      ? `Resting ${kc(b.rest)}: ${b.bf != null ? `from your lean mass at ${Math.round(b.bf)}% body fat (Body section)` : "for your weight, height and age"}. `
-        + `Daily life ${kc(b.daily)}: a desk day, about ${DESK_STEPS.toLocaleString("en-GB")} steps. `
-        + `Walking ${kc(b.walk)}: the other ${Math.max(0, b.steps - DESK_STEPS).toLocaleString("en-GB")} of your ${b.steps.toLocaleString("en-GB")} steps. `
-        + "Gym sessions aren't counted, so gym days burn more. Eating 500 under your burn loses about 0.5 kg of fat a week. Every formula is an estimate (±10%): if your waist and weekly average weight don't move after 3 weeks, trust them over this."
-      : "Resting burn comes from your weight, height and age (or your lean mass once you've measured waist and neck under Body), plus a desk day and your steps.";
+    const b = burn(), ct = calTarget(), real = realBurn();
+    $("burnEq").textContent = ct ? `Target = ${kc(ct.avg)} − ${DEFICIT} = ${kc(ct.target)} kcal a day` : "Add your age, weight and height to estimate what you burn.";
+    const formula = b
+      ? `Formula: resting ${kc(b.rest)} (${b.bf != null ? `from your lean mass at ${Math.round(b.bf)}% body fat` : "for your weight, height and age"}) `
+        + `+ desk day ${kc(b.daily)} (about ${DESK_STEPS.toLocaleString("en-GB")} steps) `
+        + `+ walking ${kc(b.walk)} (the other ${Math.max(0, b.steps - DESK_STEPS).toLocaleString("en-GB")} of your ${b.steps.toLocaleString("en-GB")} steps) = ${kc(b.total)}`
+        + (ct?.source === "formula" ? `, + gym and futsal averaged over the last ${ct.n} days ${kc(ct.extra)} = ${kc(ct.avg)}. ` : ". ")
+        + `A gym visit adds ≈ ${kc(Math.round(GYM_PER_KG * b.w / 10) * 10)} (45 min weights + 30 min stairs), futsal ≈ ${kc(Math.round(FUTSAL_PER_KG * b.w / 10) * 10)}. `
+      : "";
+    const realTxt = real.ready
+      ? `Real burn ≈ ${kc(real.total)}: over ${real.period} days you ate ${kc(real.eaten)} a day on average and your weight moved ${real.perWeek <= 0 ? "−" : "+"}${fmt(Math.abs(real.perWeek))} kg a week. The target uses this. `
+        + (real.waistChange != null ? `Your waist moved ${real.waistChange <= 0 ? "−" : "+"}${fmt(Math.abs(real.waistChange))} cm over the same days: if it's falling, the loss is fat. ` : "Measure your waist too, to check the loss is fat. ")
+        + "The first 2 weeks of a diet read high, because you lose water as well as fat."
+      : `Real burn comes from your own weigh-ins and food log, and replaces the formula once there's enough: ${Math.min(real.weighIns, REAL.weighIns)}/${REAL.weighIns} weigh-ins spread over ${Math.min(real.spread, REAL.days)}/${REAL.days} days, with food logged on ${real.period ? Math.round(real.logged / real.period * 100) : 0}% of them (needs ${REAL.logged * 100}%).`;
+    $("burnHow").textContent = formula + realTxt + ` Eating ${DEFICIT} under your burn loses about 0.5 kg of fat a week.`;
   }
 
   // ---- wiring ----
@@ -1148,6 +1307,17 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   $("nextDay").addEventListener("click", () => { if (state.date < todayStr()) { state.date = shiftDate(state.date, 1); render(); } });
   $("dateLabel").addEventListener("click", () => { state.date = todayStr(); render(); });
   $("status").addEventListener("click", () => { if (!targetG()) { $("settings").open = true; $("sTarget").focus(); } });
+  $("futsal").addEventListener("change", e => setExtra(state.date, "futsal", e.target.checked));
+  $("weighForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const v = Number($("wKg").value), d = todayStr();
+    if (!(v >= 30 && v <= 300)) { $("wNote").textContent = "Enter your weight in kg (30–300)."; $("wKg").focus(); return; }
+    state.body[d] = { ...(state.body[d] || {}), weight: round1(v) };
+    saveBody(d);
+    state.profile = { ...state.profile, weightKg: round1(v) }; saveProfile();
+    $("wKg").blur(); render();
+    if ($("bDate").value === d && !bodyDirty) fillBodyForm();
+  });
   $("kcalStatus").addEventListener("click", () => { if (!burn()) { $("settings").open = true; $(state.profile.heightCm > 0 ? "sAge" : "sHeight").focus(); } });
   $("search").addEventListener("input", e => { state.query = e.target.value; renderGroups(); });
   $("customForm").addEventListener("submit", e => {
@@ -1202,6 +1372,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   setInterval(() => { const t = todayStr(); if (t !== lastToday) { if (state.date === lastToday) state.date = t; lastToday = t; render(); } }, 60000);
 
   // ---- start ----
+  try { if (localStorage.getItem(CHART_KEY) === "kcal") state.chart = "kcal"; } catch {}
   render();
   renderBanner();
   if (sb) {
