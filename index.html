@@ -122,6 +122,7 @@ h2 { font-family: var(--display); font-stretch: 112%; font-size: 15px; font-weig
 .tile b { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; padding-right: 18px; }
 .tile small { color: var(--muted); font-size: 12px; }
 .tile .p { font-family: var(--mono); font-weight: 600; color: var(--accent); font-size: 13px; margin-top: 2px; }
+.tile .k { color: var(--muted); font-weight: 500; }
 .tile .rm { position: absolute; top: 6px; right: 6px; border: 0; background: transparent; color: var(--muted); width: 22px; height: 22px; border-radius: 6px; font-size: 14px; line-height: 1; }
 .tile .rm:hover { background: var(--sunk); color: var(--ink); }
 .custom { display: grid; grid-template-columns: 1fr 110px; gap: 8px; }
@@ -353,93 +354,95 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     { id: "dinner", name: "Dinner", color: "var(--m-dinner)" },
     { id: "snack", name: "Snacks", color: "var(--m-snack)" },
   ];
+  // Each food: id, name, serving, protein, kcal. Foods logged by weight give both per 100 g cooked.
+  // Calories are typical label values for the kind of food, not read off each pack.
   const PRESETS = [
     { group: "Staples", items: [
-      ["oats", "Porridge oats", "80 g", 10],
-      ["scoop", "Protein scoop", "1 scoop", 45],
-      ["yog", "Protein yoghurt", "1 pot", 50],
-      ["banana", "Banana", "1 medium", 1],
-      ["apple", "Apple", "1 medium", 0.5],
+      ["oats", "Porridge oats", "80 g", 10, 300],
+      ["scoop", "Protein scoop", "1 scoop", 45, 225],
+      ["yog", "Protein yoghurt", "1 pot", 50, 285],
+      ["banana", "Banana", "1 medium", 1, 105],
+      ["apple", "Apple", "1 medium", 0.5, 80],
     ]},
     // Per pouch from the label's per-100 g figure; pilau, lime & coriander and coconut are estimates.
     { group: "Aldi rice pouches", items: [
-      ["a-rice-long", "Long grain rice", "250 g pouch", 6.8],
-      ["a-rice-basmati", "Basmati rice", "250 g pouch", 6.5],
-      ["a-rice-whole", "Wholegrain rice", "250 g pouch", 11.1],
-      ["a-rice-pilau", "Pilau rice", "250 g pouch", 6.5],
-      ["a-rice-mex", "Mexican style rice", "250 g pouch", 6.1],
-      ["a-rice-veg", "Vegetable rice", "250 g pouch", 7.5],
-      ["a-rice-lime", "Lime & coriander rice", "250 g pouch", 6.5],
-      ["a-rice-coconut", "Coconut rice", "250 g pouch", 6],
-      ["a-rice-bbq", "Special BBQ rice", "250 g pouch", 7.3],
+      ["a-rice-long", "Long grain rice", "250 g pouch", 6.8, 375],
+      ["a-rice-basmati", "Basmati rice", "250 g pouch", 6.5, 380],
+      ["a-rice-whole", "Wholegrain rice", "250 g pouch", 11.1, 420],
+      ["a-rice-pilau", "Pilau rice", "250 g pouch", 6.5, 400],
+      ["a-rice-mex", "Mexican style rice", "250 g pouch", 6.1, 385],
+      ["a-rice-veg", "Vegetable rice", "250 g pouch", 7.5, 360],
+      ["a-rice-lime", "Lime & coriander rice", "250 g pouch", 6.5, 390],
+      ["a-rice-coconut", "Coconut rice", "250 g pouch", 6, 450],
+      ["a-rice-bbq", "Special BBQ rice", "250 g pouch", 7.3, 390],
     ]},
     { group: "Fish", items: [
-      ["sardines", "Sardines", "1 can (~120 g)", 21],
-      ["tuna", "Tuna, drained", "1 can (~110 g)", 25],
-      ["ee-battered", "Battered cod fillet (Everyday Essentials)", "1 fillet", 11],
+      ["sardines", "Sardines", "1 can (~120 g)", 21, 200],
+      ["tuna", "Tuna, drained", "1 can (~110 g)", 25, 120],
+      ["ee-battered", "Battered cod fillet (Everyday Essentials)", "1 fillet", 11, 200],
     ]},
     // Logged by weight: air-fried, weighed after cooking, so the number is protein per 100 g cooked.
     // Foods in the Aldi range below aren't repeated here.
     { group: "Air-fried (by weight, cooked)", per100: true, items: [
-      ["af-chicken", "Chicken breast fillet", "cooked", 31],
+      ["af-chicken", "Chicken breast fillet", "cooked", 31, 165],
     ]},
     // Aldi range, air-fried and weighed cooked (hot smoked fish is ready to eat, weighed as is).
     // The last field is one piece's typical cooked weight from the pack, for one-tap adds without scales
     // (optionally which counts to offer; 1 and 2 otherwise).
     { group: "Aldi salmon & trout (air-fried)", per100: true, items: [
-      ["a-sal-scot", "Scottish salmon fillets", "cooked", 22, ["fillet", 100]],
-      ["a-sal-boneless", "Boneless salmon fillets", "cooked", 22, ["fillet", 100]],
-      ["a-sal-lsmoked", "Lightly smoked Scottish salmon", "cooked", 23, ["fillet", 100]],
-      ["a-sal-gh", "Garlic & herb salmon fillets", "cooked", 21, ["fillet", 100]],
-      ["a-sal-gh-inf", "Garlic & herb infused salmon", "cooked", 22, ["fillet", 100]],
-      ["a-sal-swchilli", "Sweet chilli infused salmon", "cooked", 22, ["fillet", 100]],
-      ["a-sal-gcl", "Ginger, chilli & lime infused salmon", "cooked", 21, ["fillet", 100]],
-      ["a-sal-redthai", "Red Thai infused salmon", "cooked", 21, ["fillet", 100]],
-      ["a-sal-joint", "Salmon fillet joint", "cooked", 22, ["portion", 125]],
-      ["a-sal-pieces", "Salmon pieces", "cooked", 22],
-      ["a-trout", "Trout fillets", "cooked", 23, ["fillet", 100]],
-      ["a-sal-hs", "Hot smoked salmon fillets", "ready to eat", 24, ["fillet", 90]],
-      ["a-sal-hs-swchilli", "Hot smoked sweet chilli salmon", "ready to eat", 23, ["fillet", 90]],
-      ["a-sal-kiln", "Lemon & herb kiln roasted salmon", "ready to eat", 24, ["fillet", 90]],
+      ["a-sal-scot", "Scottish salmon fillets", "cooked", 22, 205, ["fillet", 100]],
+      ["a-sal-boneless", "Boneless salmon fillets", "cooked", 22, 205, ["fillet", 100]],
+      ["a-sal-lsmoked", "Lightly smoked Scottish salmon", "cooked", 23, 210, ["fillet", 100]],
+      ["a-sal-gh", "Garlic & herb salmon fillets", "cooked", 21, 230, ["fillet", 100]],
+      ["a-sal-gh-inf", "Garlic & herb infused salmon", "cooked", 22, 215, ["fillet", 100]],
+      ["a-sal-swchilli", "Sweet chilli infused salmon", "cooked", 22, 220, ["fillet", 100]],
+      ["a-sal-gcl", "Ginger, chilli & lime infused salmon", "cooked", 21, 215, ["fillet", 100]],
+      ["a-sal-redthai", "Red Thai infused salmon", "cooked", 21, 215, ["fillet", 100]],
+      ["a-sal-joint", "Salmon fillet joint", "cooked", 22, 205, ["portion", 125]],
+      ["a-sal-pieces", "Salmon pieces", "cooked", 22, 205],
+      ["a-trout", "Trout fillets", "cooked", 23, 170, ["fillet", 100]],
+      ["a-sal-hs", "Hot smoked salmon fillets", "ready to eat", 24, 195, ["fillet", 90]],
+      ["a-sal-hs-swchilli", "Hot smoked sweet chilli salmon", "ready to eat", 23, 205, ["fillet", 90]],
+      ["a-sal-kiln", "Lemon & herb kiln roasted salmon", "ready to eat", 24, 200, ["fillet", 90]],
     ]},
     { group: "Aldi white fish, tuna & mackerel (air-fried)", per100: true, items: [
-      ["a-cod", "Cod loins", "cooked", 22, ["loin", 110]],
-      ["a-hake", "Hake fillets", "cooked", 21, ["fillet", 95]],
-      ["a-haddock", "Smoked haddock fillets", "cooked", 23, ["fillet", 95]],
-      ["a-tuna", "Tuna steak (frozen)", "cooked", 29, ["steak", 95]],
-      ["a-yftuna", "Yellowfin tuna steak", "cooked", 30, ["steak", 105]],
-      ["a-basa", "Basa fillets", "cooked", 19, ["fillet", 105]],
-      ["a-sbasa", "Smoked basa fillets", "cooked", 19, ["fillet", 105]],
-      ["a-mack", "Hot smoked mackerel", "ready to eat", 19, ["fillet", 100]],
-      ["a-mack-pep", "Hot smoked peppered mackerel", "ready to eat", 19, ["fillet", 100]],
-      ["a-mack-sweet", "Hot smoked sweetcure mackerel", "ready to eat", 18, ["fillet", 100]],
+      ["a-cod", "Cod loins", "cooked", 22, 105, ["loin", 110]],
+      ["a-hake", "Hake fillets", "cooked", 21, 100, ["fillet", 95]],
+      ["a-haddock", "Smoked haddock fillets", "cooked", 23, 105, ["fillet", 95]],
+      ["a-tuna", "Tuna steak (frozen)", "cooked", 29, 130, ["steak", 95]],
+      ["a-yftuna", "Yellowfin tuna steak", "cooked", 30, 135, ["steak", 105]],
+      ["a-basa", "Basa fillets", "cooked", 19, 120, ["fillet", 105]],
+      ["a-sbasa", "Smoked basa fillets", "cooked", 19, 120, ["fillet", 105]],
+      ["a-mack", "Hot smoked mackerel", "ready to eat", 19, 300, ["fillet", 100]],
+      ["a-mack-pep", "Hot smoked peppered mackerel", "ready to eat", 19, 300, ["fillet", 100]],
+      ["a-mack-sweet", "Hot smoked sweetcure mackerel", "ready to eat", 18, 310, ["fillet", 100]],
     ]},
     { group: "Aldi beef & lamb (air-fried, medium)", per100: true, items: [
-      ["a-fil-scot", "Scotch Angus fillet steak 6oz", "cooked", 28, ["steak", 135]],
-      ["a-fil-brit-angus", "British Angus fillet steak 6oz", "cooked", 28, ["steak", 135]],
-      ["a-fil-brit30", "British 30-day fillet steak 6oz", "cooked", 28, ["steak", 135]],
-      ["a-fil-ash", "Fillet steak 28-day", "cooked", 28, ["steak", 135]],
-      ["a-rump-ash", "Rump steak 21-day", "cooked", 28, ["steak", 175]],
-      ["a-rump-ss", "Thick cut rump steak", "cooked", 28, ["steak", 175]],
-      ["a-rump-bigdaddy", "Big Daddy rump steak 16oz", "cooked", 28, ["steak", 350]],
-      ["a-ranch-brit", "British ranch steak", "cooked", 28, ["steak", 155]],
-      ["a-ranch-scot", "Scotch ranch steak", "cooked", 28, ["steak", 155]],
-      ["a-ee-steak", "Beef steak 21-day (Everyday Essentials)", "cooked", 28, ["steak", 130]],
-      ["a-braising", "Braising steak, sliced thin", "cooked", 29],
-      ["a-sirloin", "Sirloin steak 21-day", "cooked", 27, ["steak", 175]],
-      ["a-ribeye", "Ribeye steak 21-day", "cooked", 25, ["steak", 175]],
-      ["a-ribeye-dry", "Scotch dry-aged ribeye 8oz", "cooked", 25, ["steak", 175]],
-      ["a-wag-fillet", "Wagyu fillet steak", "cooked", 26, ["steak", 135]],
-      ["a-wag-rump", "Wagyu rump steak", "cooked", 26, ["steak", 175]],
-      ["a-wag-sirloin", "Wagyu sirloin steak", "cooked", 25, ["steak", 175]],
-      ["a-wag-ribeye", "Wagyu ribeye steak", "cooked", 23, ["steak", 175]],
-      ["a-wag-flat", "Wagyu flat iron steak", "cooked", 23, ["steak", 155]],
-      ["a-wag-denver", "Wagyu Denver steak", "cooked", 23, ["steak", 155]],
-      ["a-wag-picanha", "Wagyu picanha steak", "cooked", 23, ["steak", 155]],
-      ["a-lamb", "Lamb leg steaks", "cooked", 27, ["steak", 115]],
+      ["a-fil-scot", "Scotch Angus fillet steak 6oz", "cooked", 28, 195, ["steak", 135]],
+      ["a-fil-brit-angus", "British Angus fillet steak 6oz", "cooked", 28, 195, ["steak", 135]],
+      ["a-fil-brit30", "British 30-day fillet steak 6oz", "cooked", 28, 195, ["steak", 135]],
+      ["a-fil-ash", "Fillet steak 28-day", "cooked", 28, 195, ["steak", 135]],
+      ["a-rump-ash", "Rump steak 21-day", "cooked", 28, 190, ["steak", 175]],
+      ["a-rump-ss", "Thick cut rump steak", "cooked", 28, 190, ["steak", 175]],
+      ["a-rump-bigdaddy", "Big Daddy rump steak 16oz", "cooked", 28, 190, ["steak", 350]],
+      ["a-ranch-brit", "British ranch steak", "cooked", 28, 185, ["steak", 155]],
+      ["a-ranch-scot", "Scotch ranch steak", "cooked", 28, 185, ["steak", 155]],
+      ["a-ee-steak", "Beef steak 21-day (Everyday Essentials)", "cooked", 28, 190, ["steak", 130]],
+      ["a-braising", "Braising steak, sliced thin", "cooked", 29, 195],
+      ["a-sirloin", "Sirloin steak 21-day", "cooked", 27, 210, ["steak", 175]],
+      ["a-ribeye", "Ribeye steak 21-day", "cooked", 25, 260, ["steak", 175]],
+      ["a-ribeye-dry", "Scotch dry-aged ribeye 8oz", "cooked", 25, 260, ["steak", 175]],
+      ["a-wag-fillet", "Wagyu fillet steak", "cooked", 26, 230, ["steak", 135]],
+      ["a-wag-rump", "Wagyu rump steak", "cooked", 26, 220, ["steak", 175]],
+      ["a-wag-sirloin", "Wagyu sirloin steak", "cooked", 25, 270, ["steak", 175]],
+      ["a-wag-ribeye", "Wagyu ribeye steak", "cooked", 23, 320, ["steak", 175]],
+      ["a-wag-flat", "Wagyu flat iron steak", "cooked", 23, 280, ["steak", 155]],
+      ["a-wag-denver", "Wagyu Denver steak", "cooked", 23, 290, ["steak", 155]],
+      ["a-wag-picanha", "Wagyu picanha steak", "cooked", 23, 300, ["steak", 155]],
+      ["a-lamb", "Lamb leg steaks", "cooked", 27, 210, ["steak", 115]],
     ]},
     { group: "Other", items: [
-      ["curry", "Ready-meal curry", "1 pack", 25],
+      ["curry", "Ready-meal curry", "1 pack", 25, 550],
     ]},
   ];
   // An example week of main proteins, Monday first.
@@ -715,7 +718,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   }
 
   // ---- weigh panel ----
-  let weighing = null;   // { name, serving, protein, piece? } while choosing grams
+  let weighing = null;   // { name, serving, protein, kcal?, piece? } while choosing grams
   function openWeigh(item) { weighing = item; renderWeigh(true); }
   function renderWeigh(focus = false) {
     const box = $("weigh");
@@ -727,7 +730,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const chips = el("div", { class: "chips" });
     const sync = () => {
       const g = Number(input.value);
-      out.textContent = g > 0 ? `= ${fmt(item.protein * g / 100)} g protein` : "";
+      out.textContent = g > 0 ? `= ${fmt(item.protein * g / 100)} g protein${item.kcal ? ` · ${Math.round(item.kcal * g / 100)} kcal` : ""}` : "";
       for (const b of chips.children) b.setAttribute("aria-pressed", String(Number(b.dataset.g) === g));
     };
     // Pieces first (e.g. 1 and 2 fillets at their typical cooked weight), then 50 g steps.
@@ -748,7 +751,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); add(); } });
     box.replaceChildren(
       el("div", { class: "weigh-head" }, el("b", {}, `${item.name}: how much?`), el("span", { class: "note" },
-        `${fmt(item.protein)} g protein per 100 g ${item.serving}${item.piece ? ` · 1 ${item.piece[0]} ≈ ${item.piece[1]} g` : ""}`)),
+        `${fmt(item.protein)} g protein${item.kcal ? ` · ${item.kcal} kcal` : ""} per 100 g ${item.serving}${item.piece ? ` · 1 ${item.piece[0]} ≈ ${item.piece[1]} g` : ""}`)),
       el("div", { class: "weigh-row" }, el("span", { class: "grams" }, input, "g"), out),
       chips,
       el("div", { class: "weigh-row" },
@@ -858,13 +861,14 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       if (!items.length) continue;
       shown += items.length;
       const tiles = el("div", { class: "tiles" });
-      for (const [id, name, serving, protein, piece] of items) {
+      for (const [id, name, serving, protein, kcal, piece] of items) {
+        const cal = kcal ? el("span", { class: "k" }, ` · ${kcal} kcal`) : null;
         const tile = g.per100
-          ? el("button", { class: "tile", type: "button", onclick: () => openWeigh({ name, serving, protein, piece }) },
+          ? el("button", { class: "tile", type: "button", onclick: () => openWeigh({ name, serving, protein, kcal, piece }) },
               el("b", {}, name), el("small", {}, piece ? `${serving} · 1 ${piece[0]} ≈ ${piece[1]} g` : `Enter grams · ${serving}`),
-              el("span", { class: "p" }, `${fmt(protein)} g / 100 g`))
+              el("span", { class: "p" }, `${fmt(protein)} g / 100 g`, cal))
           : el("button", { class: "tile", type: "button", onclick: () => addEntry({ name, serving, protein }) },
-              el("b", {}, name), el("small", {}, serving || "1 serving"), el("span", { class: "p" }, `+${fmt(protein)} g`));
+              el("b", {}, name), el("small", {}, serving || "1 serving"), el("span", { class: "p" }, `+${fmt(protein)} g`, cal));
         if (g.custom) {
           const drop = ev => { ev.preventDefault(); ev.stopPropagation(); setCustom(state.custom.filter(c => c.id !== id)); };
           tile.append(el("span", { class: "rm", role: "button", tabindex: "0", "aria-label": `Remove ${name} from my foods`,

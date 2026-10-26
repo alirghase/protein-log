@@ -14,9 +14,11 @@ Live at **https://alirghase.github.io/protein-log/**.
 - **By weight:** meat asks for grams (type any weight or tap 50–400 g in 50 g steps; each button shows
   its protein) and works out the protein from its per-100 g value. It remembers your last weight for
   each food. In the day's list, type a new weight or nudge it by 50 g.
-- **Built-in foods:** staples (oats, protein scoop, protein yoghurt), tinned fish and prawns, air-fried
-  chicken thigh and mince (weighed cooked), and a few others. Values are typical UK label figures. Each
+- **Built-in foods:** staples (oats, protein scoop, protein yoghurt, fruit), tinned fish, air-fried
+  chicken breast (weighed cooked), and a few others. Values are typical UK label figures. Each
   food is listed once: anything in the Aldi range below isn't repeated as a generic item.
+- **Calories:** every built-in food shows its calories next to its protein (per serving, or per 100 g
+  for foods logged by weight), and the weigh panel shows the calories for the weight you pick.
 - **Aldi rice pouches:** the eight Worldwide Foods 250 g pouches, one tap each.
 - **Aldi range:** Aldi's salmon, trout, white fish, tuna, mackerel, chicken, turkey, beef and lamb, air-fried
   and weighed cooked (hot smoked fish is ready to eat). Each has quick buttons for 1 or 2 fillets or steaks
