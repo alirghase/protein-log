@@ -290,7 +290,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
           <button class="primary" type="submit">Add</button>
         </div>
       </form>
-      <p class="hint">Figures are typical UK label values; meat and fish logged by weight use the cooked weight. Check your packs and add your own if they differ.</p>
+      <p class="hint">Meat and fish by cooked weight.</p>
     </div>
   </section>
 
@@ -336,7 +336,6 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
         <button class="primary" type="submit">Save measurements</button>
         <span class="msg" id="bMsg" role="status"></span>
       </div>
-      <p class="hint">Fill in only what you measured. Once a week is plenty: same day, first thing in the morning, before food.</p>
       <details class="howto"><summary>How to measure</summary><ul id="howto"></ul></details>
     </form>
     <div class="field">
@@ -369,7 +368,6 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       <span class="eq" id="burnEq"></span>
       <span class="note" id="burnHow"></span>
     </div>
-    <p class="note">Why target weight: when you're carrying extra fat, protein is set from the weight you're heading to, not today's. Studies support 1.6–2.2 g per kg for keeping and building muscle while losing fat. 1.8 is a solid middle.</p>
   </details>
 
   <section class="panel" aria-label="Account">
@@ -723,7 +721,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     box.replaceChildren();
     if (user) {
       box.append(
-        el("p", { class: "hint" }, el("b", {}, "Saved online"), ` to ${user.email}. Same account as Gym Plan. Sign in with it on any device to see your log.`),
+        el("p", { class: "hint" }, el("b", {}, "Saved online"), ` to ${user.email}.`),
         step.moved ? el("p", { class: "hint" }, `Moved ${step.moved} day${step.moved === 1 ? "" : "s"} from this browser to your online log.`) : null,
         el("div", {}, el("button", { class: "link", type: "button", onclick: () => sb.auth.signOut() }, "Sign out")));
       return;
@@ -737,7 +735,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
         el("button", { class: "primary", type: "submit", value: "in" }, "Sign in"),
         el("button", { class: "secondary", type: "submit", value: "up" }, "Create account")));
     form.addEventListener("submit", e => { e.preventDefault(); signIn(form, e.submitter?.value === "up" ? "up" : "in", msg); });
-    box.append(el("p", { class: "hint" }, "Use the same email and password as Gym Plan. Signed in, your log is saved online and shows on every device."), form, msg);
+    box.append(el("p", { class: "hint" }, "Same account as Gym Plan."), form, msg);
   }
   async function signIn(f, mode, msg) {
     const email = f.elements.email.value.trim(), password = f.elements.password.value;
@@ -935,15 +933,14 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     }
     kbar.setAttribute("aria-label", ct ? `${kc(kIn)} of a ${kc(ct.target)} calorie target` : `${kc(kIn)} calories`);
     $("kcalNote").textContent = [
-      !ct ? "Add your age, weight and height under Your target and burn to set a calorie target."
-        : `Target = burn ${kc(ct.avg)} (resting + ${ct.b.steps.toLocaleString("en-GB")} steps, no gym or sport) − ${DEFICIT}.`,
-      missing ? `${missing} food${missing === 1 ? " has" : "s have"} no calories, so the total is low.` : "",
+      !ct ? "Add your age under Your target and burn." : "",
+      missing ? `${missing} food${missing === 1 ? "" : "s"} without calories.` : "",
     ].filter(Boolean).join(" ");
 
     // meals
     const meals = $("meals"); meals.replaceChildren();
     if (!list.length) {
-      meals.append(el("p", { class: "hint", style: "margin:0 4px" }, "Nothing logged yet. Pick a meal below, then tap a food to add it, or:"));
+      meals.append(el("p", { class: "hint", style: "margin:0 4px" }, "Nothing logged yet."));
       const prevN = entries(shiftDate(state.date, -1)).length;
       meals.append(el("div", { class: "quick" },
         el("button", { class: "secondary", type: "button", onclick: logStaples }, "Log staples"),
@@ -1023,7 +1020,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
         : el("span", { class: "label" }, g.group);
       groups.append(el("div", { class: "group" }, head, tiles));
     }
-    if (!shown) groups.append(el("p", { class: "hint" }, `No match for "${state.query}". Add it below with its protein and calories.`));
+    if (!shown) groups.append(el("p", { class: "hint" }, `No match for "${state.query}".`));
   }
 
   function renderHistory() {
@@ -1058,10 +1055,8 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const done = days.filter(d => d < today && entries(d).length);
     const avgK = done.length ? done.reduce((s, d) => s + kcalOf(entries(d)).sum, 0) / done.length : 0;
     const gap = ct ? ct.avg - avgK : 0;
-    $("avgKcal").textContent = !done.length ? "Calories: the average shows once you’ve logged a full day (today counts when it’s over)."
-      : `Calories: avg ${kc(avgK)} a day over ${done.length} logged day${done.length === 1 ? "" : "s"}`
-        + (ct ? ` · ${kc(Math.abs(gap))} ${gap >= 0 ? "under" : "over"} your ≈ ${kc(ct.avg)} burn, about ${fmt(Math.abs(gap) * 7 / 7700)} kg of fat a week ${gap >= 0 ? "lost" : "gained"}.` : ".")
-        + (done.some(d => kcalOf(entries(d)).missing) ? " Some foods those days have no calories, so the average is low." : "");
+    $("avgKcal").textContent = !done.length ? ""
+      : `Avg ${kc(avgK)} kcal` + (ct ? ` · ${kc(Math.abs(gap))} ${gap >= 0 ? "under" : "over"} burn ≈ ${fmt(Math.abs(gap) * 7 / 7700)} kg fat a week` : "");
   }
 
   function renderPlan() {
@@ -1134,7 +1129,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const avgIn = (a, b) => { const v = ws.filter(p => p.date > a && p.date <= b).map(p => p.v); return v.length ? v.reduce((x, y) => x + y) / v.length : null; };
     const wk = avgIn(shiftDate(today, -7), today), prevWk = avgIn(shiftDate(today, -14), shiftDate(today, -7));
     const wi = $("wKg"); if (document.activeElement !== wi) wi.value = state.body[today]?.weight ?? "";
-    $("wNote").textContent = wk == null ? "Weigh 3–4 mornings a week: after the toilet, before food." 
+    $("wNote").textContent = wk == null ? "" 
       : `7-day average ${fmt(wk)} kg` + (prevWk != null ? ` (${wk - prevWk <= 0 ? "−" : "+"}${fmt(Math.abs(wk - prevWk))} on the week before)` : "");
     const top = $("bodyTop"); top.replaceChildren();
     if (waist.length) {
@@ -1164,7 +1159,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       } else stats.append(el("span", { class: "note" }, "Add your height under Your target to see waist ÷ height and body fat."));
       top.append(stats);
     } else {
-      top.append(el("p", { class: "hint" }, "Measure your waist below to start. It shows fat loss better than the scale, because the muscle you build weighs something too."));
+      top.append(el("p", { class: "hint" }, "Measure your waist below to start."));
     }
 
     const ul = $("measures"); ul.replaceChildren();
@@ -1186,8 +1181,8 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     for (const m of MEASURES) { const last = series(m.id).at(-1); $(`b-${m.id}`).placeholder = last ? fmt(last.v) : m.unit; }
     const wt = $("sWaistTarget"); if (document.activeElement !== wt) wt.value = p.waistTargetCm ?? "";
     $("waistAdvice").textContent = h > 0
-      ? `For ${fmt(h)} cm tall: under ${Math.round(h * 0.5)} cm is the health line (half your height), and about ${Math.round(h * 0.45)} cm looks lean and athletic.`
-      : "Add your height under Your target for a suggestion.";
+      ? `Healthy under ${Math.round(h * 0.5)} cm · lean ≈ ${Math.round(h * 0.45)} cm`
+      : "";
 
     const hist = $("bodyHist"); hist.replaceChildren();
     if (dates.length) {
@@ -1222,7 +1217,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const t = Number(p.targetKg);
     if (t > 0) {
       $("calcEq").textContent = `${fmt(t)} kg × ${Number(p.gPerKg).toFixed(1)} g/kg = ${targetG()} g a day`;
-      $("calcRange").textContent = `Supported range for ${fmt(t)} kg: ${Math.round(t * 1.6)}–${Math.round(t * 2.2)} g a day.`;
+      $("calcRange").textContent = "";
     } else {
       $("calcEq").textContent = "Enter your target weight to set your daily protein.";
       $("calcRange").textContent = "";
@@ -1233,19 +1228,11 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       ? `BMI now ${bmi(w)} at ${fmt(w)} kg${t > 0 ? ` · at ${fmt(t)} kg it would be ${bmi(t)}` : ""}.`
       : "Add your weight and height to see your BMI.";
     const b = burn(), ct = calTarget(), real = realBurn();
-    $("burnEq").textContent = ct ? `Target = ${kc(ct.avg)} − ${DEFICIT} = ${kc(ct.target)} kcal a day` : "Add your age, weight and height to estimate what you burn.";
-    const formula = b
-      ? `Burn: resting ${kc(b.rest)} (${b.bf != null ? `from your lean mass at ${Math.round(b.bf)}% body fat` : "for your weight, height and age"}) `
-        + `+ desk day ${kc(b.daily)} (about ${DESK_STEPS.toLocaleString("en-GB")} steps) `
-        + `+ walking ${kc(b.walk)} (the other ${Math.max(0, b.steps - DESK_STEPS).toLocaleString("en-GB")} of your ${b.steps.toLocaleString("en-GB")} steps) = ${kc(b.total)}`
-        + ". Gym and sport aren't counted, so the target stays on the safe side. "
-      : "";
-    const realTxt = real.ready
-      ? `Real burn ≈ ${kc(real.total)}: over ${real.period} days you ate ${kc(real.eaten)} a day on average and your weight moved ${real.perWeek <= 0 ? "−" : "+"}${fmt(Math.abs(real.perWeek))} kg a week. This is a check only: the target stays on the conservative formula. `
-        + (real.waistChange != null ? `Your waist moved ${real.waistChange <= 0 ? "−" : "+"}${fmt(Math.abs(real.waistChange))} cm over the same days: if it's falling, the loss is fat. ` : "Measure your waist too, to check the loss is fat. ")
-        + "The first 2 weeks of a diet read high, because you lose water as well as fat."
-      : `A check from your own data (real burn) shows once there's enough: ${Math.min(real.weighIns, REAL.weighIns)}/${REAL.weighIns} weigh-ins spread over ${Math.min(real.spread, REAL.days)}/${REAL.days} days, with food logged on ${real.period ? Math.round(real.logged / real.period * 100) : 0}% of them (needs ${REAL.logged * 100}%).`;
-    $("burnHow").textContent = formula + realTxt + ` Eating ${DEFICIT} under your burn loses about 0.5 kg of fat a week.`;
+    $("burnEq").textContent = ct ? `${kc(ct.avg)} − ${DEFICIT} = ${kc(ct.target)} kcal a day` : "Add age, weight and height.";
+    $("burnHow").textContent = [
+      b ? `Resting ${kc(b.rest)} + desk day ${kc(b.daily)} + ${b.steps.toLocaleString("en-GB")} steps ${kc(b.walk)}. No gym counted.` : "",
+      real.ready ? `Real burn from your weigh-ins ≈ ${kc(real.total)}${real.waistChange != null ? ` (waist ${real.waistChange <= 0 ? "−" : "+"}${fmt(Math.abs(real.waistChange))} cm)` : ""}.` : "",
+    ].filter(Boolean).join(" ");
   }
 
   // ---- wiring ----
