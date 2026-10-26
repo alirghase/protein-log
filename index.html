@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Protein Log</title>
-<meta name="description" content="Log protein by meal through the day, against a daily target set from your target weight, and track your waist and other measurements.">
+<meta name="description" content="Log protein and calories by meal through the day, against a protein target and an estimate of what you burn, and track your waist and other measurements.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Protein Log">
@@ -78,10 +78,14 @@ h2 { font-family: var(--display); font-stretch: 112%; font-size: 15px; font-weig
 .pill { font-size: 12px; font-weight: 650; padding: 4px 10px; border-radius: 999px; background: var(--sunk); color: var(--muted); margin-left: auto; white-space: nowrap; border: 0; }
 .pill.done { background: var(--accent); color: var(--accent-ink); }
 .pill.close { background: var(--accent-soft); color: var(--accent); }
+.pill.over { background: color-mix(in srgb, var(--warn) 22%, var(--surface)); color: var(--warn); }
 .bar { position: relative; height: 16px; background: var(--sunk); border-radius: 8px; overflow: hidden; display: flex; }
 .bar span { height: 100%; transition: width .25s ease; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); }
 .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; }
+.cal { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; }
+.cal .big .val { font-size: 30px; }
+.cal .bar { height: 10px; border-radius: 5px; }
 
 /* Meals */
 .meals { display: flex; flex-direction: column; gap: 10px; }
@@ -125,7 +129,7 @@ h2 { font-family: var(--display); font-stretch: 112%; font-size: 15px; font-weig
 .tile .k { color: var(--muted); font-weight: 500; }
 .tile .rm { position: absolute; top: 6px; right: 6px; border: 0; background: transparent; color: var(--muted); width: 22px; height: 22px; border-radius: 6px; font-size: 14px; line-height: 1; }
 .tile .rm:hover { background: var(--sunk); color: var(--ink); }
-.custom { display: grid; grid-template-columns: 1fr 110px; gap: 8px; }
+.custom { display: grid; grid-template-columns: 1fr 96px 96px; gap: 8px; }
 .input { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; min-width: 0; }
 .custom .row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .check { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; color: var(--muted); }
@@ -220,7 +224,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
 @media (max-width: 440px) {
   .fields { grid-template-columns: 1fr 1fr; }
   .big .val { font-size: 44px; }
-  .custom { grid-template-columns: 1fr 92px; }
+  .custom { grid-template-columns: 1fr 80px 80px; }
   .auth { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -248,6 +252,15 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     </div>
     <div class="bar" id="bar" role="img" aria-label="Protein progress"></div>
     <div class="legend" id="legend"></div>
+    <div class="cal">
+      <div class="big">
+        <span class="val" id="kcal">0</span>
+        <span class="of">kcal eaten of <span class="num" id="burn">–</span> burned</span>
+        <button class="pill" id="kcalStatus" type="button">Estimate your burn</button>
+      </div>
+      <div class="bar" id="kbar" role="img" aria-label="Calories against burn"></div>
+      <span class="note" id="kcalNote"></span>
+    </div>
   </section>
 
   <section class="meals" id="meals" aria-label="Meals"></section>
@@ -265,6 +278,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       <form class="custom" id="customForm">
         <input class="input" type="text" id="cName" placeholder="Food, e.g. Greek yoghurt 200 g" required>
         <input class="input" type="number" id="cProtein" placeholder="Protein g" min="0" max="300" step="0.5" inputmode="decimal" required>
+        <input class="input" type="number" id="cKcal" placeholder="kcal" min="0" max="5000" step="1" inputmode="numeric" aria-label="Calories (optional)">
         <div class="row">
           <label class="check"><input type="checkbox" id="cSave" checked> Save to my foods</label>
           <button class="primary" type="submit">Add</button>
@@ -280,6 +294,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       <span class="note" id="avg"></span>
     </div>
     <div class="hist" id="hist"></div>
+    <span class="note" id="avgKcal"></span>
   </section>
 
   <section class="panel" aria-label="Example week">
@@ -320,11 +335,13 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   </section>
 
   <details class="panel" id="settings">
-    <summary><h2>Your target</h2><span class="chev">›</span></summary>
+    <summary><h2>Your target and burn</h2><span class="chev">›</span></summary>
     <div class="fields">
       <div class="field"><label for="sWeight">Weight now (kg)</label><input class="input" id="sWeight" type="number" min="30" max="300" step="0.1" inputmode="decimal"></div>
       <div class="field"><label for="sHeight">Height (cm)</label><input class="input" id="sHeight" type="number" min="100" max="250" step="1" inputmode="numeric"></div>
       <div class="field"><label for="sTarget">Target weight (kg)</label><input class="input" id="sTarget" type="number" min="30" max="300" step="0.5" inputmode="decimal"></div>
+      <div class="field"><label for="sAge">Age</label><input class="input" id="sAge" type="number" min="14" max="100" step="1" inputmode="numeric"></div>
+      <div class="field"><label for="sSteps">Steps a day (average)</label><input class="input" id="sSteps" type="number" min="0" max="50000" step="500" inputmode="numeric"></div>
     </div>
     <div class="field">
       <label>Protein per kg of target weight</label>
@@ -334,6 +351,10 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       <span class="eq" id="calcEq"></span>
       <span class="note" id="calcRange"></span>
       <span class="note" id="calcBmi"></span>
+    </div>
+    <div class="calc">
+      <span class="eq" id="burnEq"></span>
+      <span class="note" id="burnHow"></span>
     </div>
     <p class="note">Why target weight: when you're carrying extra fat, protein is set from the weight you're heading to, not today's. Studies support 1.6–2.2 g per kg for keeping and building muscle while losing fat. 1.8 is a solid middle.</p>
   </details>
@@ -358,7 +379,8 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   // Calories are typical label values for the kind of food, not read off each pack.
   const PRESETS = [
     { group: "Staples", items: [
-      ["oats", "Porridge oats", "80 g", 10, 300],
+      ["oats", "Porridge oats", "80 g, in water", 9, 300],
+      ["honey", "Honey", "1 tsp", 0, 20],
       ["scoop", "Protein scoop", "1 scoop", 45, 225],
       ["yog", "Protein yoghurt", "1 pot", 50, 285],
       ["banana", "Banana", "1 medium", 1, 105],
@@ -441,9 +463,6 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       ["a-wag-picanha", "Wagyu picanha steak", "cooked", 23, 300, ["steak", 155]],
       ["a-lamb", "Lamb leg steaks", "cooked", 27, 210, ["steak", 115]],
     ]},
-    { group: "Other", items: [
-      ["curry", "Ready-meal curry", "1 pack", 25, 550],
-    ]},
   ];
   // An example week of main proteins, Monday first.
   const PLAN = [
@@ -455,7 +474,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     ["Sat", "Chicken", "Sardines"],
     ["Sun", "Red meat", "Chicken"],
   ];
-  const DEFAULT_PROFILE = { weightKg: null, heightCm: null, targetKg: null, gPerKg: 1.8, waistTargetCm: null };
+  const DEFAULT_PROFILE = { weightKg: null, heightCm: null, targetKg: null, gPerKg: 1.8, waistTargetCm: null, age: null, stepsPerDay: 10000 };
   const FACTORS = [1.6, 1.8, 2.0, 2.2];
   // Body section measures. dir is which way counts as progress: -1 down, 1 up, 0 just track it.
   const MEASURES = [
@@ -500,6 +519,32 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   // By-weight entries keep protein per 100 g and the grams eaten; the rest keep protein per serving and a count.
   const entryG = e => e.per100 ? e.protein * e.grams / 100 : e.protein * e.qty;
   function totalOf(list) { return list.reduce((s, e) => s + entryG(e), 0); }
+  // Calories work the same way. Entries logged before calories were kept fall back to the built-in food's value.
+  const PRESET_KCAL = new Map(PRESETS.flatMap(g => g.items.map(([, name, , , kcal]) => [name, kcal])));
+  const entryKcal = e => { const k = e.kcal ?? PRESET_KCAL.get(e.name); return k == null ? null : e.per100 ? k * e.grams / 100 : k * e.qty; };
+  function kcalOf(list) {
+    let sum = 0, missing = 0;
+    for (const e of list) { const k = entryKcal(e); if (k == null) missing++; else sum += k; }
+    return { sum, missing };
+  }
+  const kc = n => Math.round(n).toLocaleString("en-GB");
+  // What a day burns, estimated. Resting burn is Katch–McArdle (from lean mass) when the Body section gives a
+  // body-fat estimate, otherwise Mifflin–St Jeor for men. A desk day is resting × 1.2, which already covers about
+  // 5,000 steps (the usual cut-off for "sedentary"); steps beyond that cost about 0.5 kcal per kg per km walked,
+  // with a stride of 41.5% of height. Gym sessions aren't counted, so gym days burn more than this.
+  const DESK_STEPS = 5000;
+  function burn(p = state.profile) {
+    const w = Number(p.weightKg), h = Number(p.heightCm), age = Number(p.age);
+    if (!(w > 0 && h > 0)) return null;
+    const bf = navyBodyFat(series("waist").at(-1)?.v, series("neck").at(-1)?.v, h);
+    const rest = bf != null ? 370 + 21.6 * w * (1 - bf / 100) : age > 0 ? 10 * w + 6.25 * h - 5 * age + 5 : null;
+    if (rest == null) return null;
+    const steps = p.stepsPerDay ?? DEFAULT_PROFILE.stepsPerDay;
+    const walk = 0.5 * w * Math.max(0, steps - DESK_STEPS) * h * 0.415 / 100000;
+    const r10 = n => Math.round(n / 10) * 10;
+    const parts = { rest: r10(rest), daily: r10(rest * 0.2), walk: r10(walk) };
+    return { ...parts, total: parts.rest + parts.daily + parts.walk, steps, bf };
+  }
   const GRAMS_KEY = "protein-log:last-grams";
   const lastGrams = (name, fallback = 200) => { try { return JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}")[name] || fallback; } catch { return fallback; } };
   const rememberGrams = (name, g) => { try { const m = JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}"); m[name] = g; localStorage.setItem(GRAMS_KEY, JSON.stringify(m)); } catch {} };
@@ -538,18 +583,20 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   const must = ({ data, error }) => { if (error) throw error; return data; };
   const profileRow = () => ({
     user_id: user.id, weight_kg: state.profile.weightKg, height_cm: state.profile.heightCm, target_kg: state.profile.targetKg,
-    g_per_kg: state.profile.gPerKg, waist_target_cm: state.profile.waistTargetCm, custom_foods: state.custom, saved_at: Date.now(),
+    g_per_kg: state.profile.gPerKg, waist_target_cm: state.profile.waistTargetCm, age: state.profile.age,
+    steps_per_day: state.profile.stepsPerDay ?? DEFAULT_PROFILE.stepsPerDay, custom_foods: state.custom, saved_at: Date.now(),
   });
   const cloud = {
     async load() {
       const [p, d, b] = await Promise.all([
-        sb.from("protein_profile").select("weight_kg,height_cm,target_kg,g_per_kg,waist_target_cm,custom_foods").maybeSingle(),
+        sb.from("protein_profile").select("weight_kg,height_cm,target_kg,g_per_kg,waist_target_cm,age,steps_per_day,custom_foods").maybeSingle(),
         sb.from("protein_days").select("date,entries").order("date", { ascending: false }).limit(1000),
         sb.from("body_measurements").select("date,measures").order("date", { ascending: false }).limit(1000),
       ]);
       const prof = must(p), days = must(d), body = must(b);
       return {
-        profile: prof ? { weightKg: num(prof.weight_kg), heightCm: num(prof.height_cm), targetKg: num(prof.target_kg), gPerKg: num(prof.g_per_kg) ?? 1.8, waistTargetCm: num(prof.waist_target_cm) } : null,
+        profile: prof ? { weightKg: num(prof.weight_kg), heightCm: num(prof.height_cm), targetKg: num(prof.target_kg), gPerKg: num(prof.g_per_kg) ?? 1.8, waistTargetCm: num(prof.waist_target_cm),
+          age: num(prof.age), stepsPerDay: num(prof.steps_per_day) ?? DEFAULT_PROFILE.stepsPerDay } : null,
         body: Object.fromEntries(body.map(r => [r.date, r.measures && typeof r.measures === "object" ? r.measures : {}])),
         custom: prof && Array.isArray(prof.custom_foods) ? prof.custom_foods : [],
         days: Object.fromEntries(days.map(r => [r.date, Array.isArray(r.entries) ? r.entries : []])),
@@ -678,7 +725,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
           if (body.length) must(await sb.from("body_measurements").upsert(body.map(([date, m]) => ({ user_id: u.id, date, measures: m, saved_at: Date.now() })), { onConflict: "user_id,date", ignoreDuplicates: true }));
           if (mine.profile || (mine.custom || []).length) {
             const p = mine.profile || DEFAULT_PROFILE;
-            must(await sb.from("protein_profile").upsert({ user_id: u.id, weight_kg: p.weightKg, height_cm: p.heightCm, target_kg: p.targetKg, g_per_kg: p.gPerKg ?? 1.8, waist_target_cm: p.waistTargetCm ?? null, custom_foods: mine.custom || [], saved_at: Date.now() }, { onConflict: "user_id", ignoreDuplicates: true }));
+            must(await sb.from("protein_profile").upsert({ user_id: u.id, weight_kg: p.weightKg, height_cm: p.heightCm, target_kg: p.targetKg, g_per_kg: p.gPerKg ?? 1.8, waist_target_cm: p.waistTargetCm ?? null, age: p.age ?? null, steps_per_day: p.stepsPerDay ?? DEFAULT_PROFILE.stepsPerDay, custom_foods: mine.custom || [], saved_at: Date.now() }, { onConflict: "user_id", ignoreDuplicates: true }));
           }
           localStorage.setItem(`${KEY}:moved-online`, JSON.stringify(mine));
           localStorage.removeItem(KEY);
@@ -695,9 +742,10 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   let lastAdded = null, toastTimer = null;
   function addEntry(item) {
     const date = state.date;
+    const kcal = item.kcal != null && item.kcal !== "" ? { kcal: Number(item.kcal) } : {};
     const entry = item.grams
-      ? { id: uid(), meal: state.meal, name: item.name, serving: item.serving || "", protein: Number(item.protein), per100: true, grams: item.grams, t: Date.now() }
-      : { id: uid(), meal: state.meal, name: item.name, serving: item.serving || "", protein: Number(item.protein), qty: 1, t: Date.now() };
+      ? { id: uid(), meal: state.meal, name: item.name, serving: item.serving || "", protein: Number(item.protein), ...kcal, per100: true, grams: item.grams, t: Date.now() }
+      : { id: uid(), meal: state.meal, name: item.name, serving: item.serving || "", protein: Number(item.protein), ...kcal, qty: 1, t: Date.now() };
     state.days[date] = [...entries(date), entry];
     saveDay(date); render();
     lastAdded = { date, id: entry.id };
@@ -805,6 +853,30 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     }
     bar.setAttribute("aria-label", tgt ? `${fmt(total)} of ${tgt} grams` : `${fmt(total)} grams`);
 
+    // calories against the day's estimated burn
+    const { sum: kIn, missing } = kcalOf(list);
+    const b = burn();
+    $("kcal").textContent = kc(kIn);
+    $("burn").textContent = b ? `≈ ${kc(b.total)}` : "–";
+    const ks = $("kcalStatus");
+    if (!b) { ks.className = "pill"; ks.textContent = "Estimate your burn"; }
+    else {
+      const left = b.total - kIn;
+      ks.className = "pill" + (left < 0 ? " over" : left >= 300 ? " close" : "");
+      ks.textContent = left < 0 ? `${kc(-left)} over burn` : `${kc(left)} under burn`;
+    }
+    const kbar = $("kbar"); kbar.replaceChildren();
+    const kscale = Math.max(b?.total || 0, kIn) || 1;
+    const within = b ? Math.min(kIn, b.total) : kIn;
+    if (within > 0) kbar.append(el("span", { style: `width:${(within / kscale) * 100}%;background:var(--accent)` }));
+    if (b && kIn > b.total) kbar.append(el("span", { style: `width:${((kIn - b.total) / kscale) * 100}%;background:var(--warn)` }));
+    kbar.setAttribute("aria-label", b ? `${kc(kIn)} of about ${kc(b.total)} calories burned` : `${kc(kIn)} calories`);
+    $("kcalNote").textContent = [
+      b ? `Burn = resting ${kc(b.rest)} + daily life ${kc(b.daily)} + ${b.steps.toLocaleString("en-GB")} steps ${kc(b.walk)}. Gym not counted, so gym days burn more.`
+        : "Add your age, weight and height under Your target and burn to estimate what you burn.",
+      missing ? `${missing} food${missing === 1 ? " has" : "s have"} no calories, so the total is low.` : "",
+    ].filter(Boolean).join(" ");
+
     // meals
     const meals = $("meals"); meals.replaceChildren();
     if (!list.length) meals.append(el("p", { class: "hint", style: "margin:0 4px" }, "Nothing logged yet. Pick a meal below, then tap a food to add it."));
@@ -818,7 +890,8 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
           : el("span", { class: "num" }, `×${fmt(e.qty)}`);
         ul.append(el("li", { class: "entry" },
           el("div", { class: "name" }, el("b", {}, e.name),
-            el("small", {}, e.per100 ? `${fmt(e.protein)} g per 100 g${e.serving ? ` ${e.serving}` : ""}` : e.serving ? `${e.serving} · ${fmt(e.protein)} g each` : `${fmt(e.protein)} g each`)),
+            el("small", {}, (e.per100 ? `${fmt(e.protein)} g per 100 g${e.serving ? ` ${e.serving}` : ""}` : e.serving ? `${e.serving} · ${fmt(e.protein)} g each` : `${fmt(e.protein)} g each`)
+              + (entryKcal(e) != null ? ` · ${kc(entryKcal(e))} kcal` : ""))),
           el("div", { class: "entry-row2" },
             el("div", { class: "qty" },
               el("button", { type: "button", "aria-label": e.per100 ? `25 g less ${e.name}` : `Less ${e.name}`, onclick: () => changeQty(e.id, -0.5) }, "−"),
@@ -831,7 +904,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
         el("div", { class: "meal-head" },
           el("span", { class: "dot", style: `background:${m.color}` }),
           el("h2", {}, m.name),
-          el("span", { class: "sum num" }, items.length ? `${fmt(totalOf(items))} g` : ""),
+          el("span", { class: "sum num" }, items.length ? `${fmt(totalOf(items))} g${kcalOf(items).sum ? ` · ${kc(kcalOf(items).sum)} kcal` : ""}` : ""),
           el("button", { class: "add", type: "button", onclick: () => { state.meal = m.id; render(); $("picker").scrollIntoView({ behavior: "smooth", block: "start" }); } }, "+ Add")),
         ul));
     }
@@ -853,7 +926,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const words = q.split(/\s+/).filter(Boolean);   // every word must appear, in any order
     const groups = $("groups"); groups.replaceChildren();
     const all = [];
-    if (state.custom.length) all.push({ group: "My foods", custom: true, items: state.custom.map(c => [c.id, c.name, c.serving || "", c.protein]) });
+    if (state.custom.length) all.push({ group: "My foods", custom: true, items: state.custom.map(c => [c.id, c.name, c.serving || "", c.protein, c.kcal]) });
     all.push(...PRESETS);
     let shown = 0;
     for (const g of all) {
@@ -867,7 +940,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
           ? el("button", { class: "tile", type: "button", onclick: () => openWeigh({ name, serving, protein, kcal, piece }) },
               el("b", {}, name), el("small", {}, piece ? `${serving} · 1 ${piece[0]} ≈ ${piece[1]} g` : `Enter grams · ${serving}`),
               el("span", { class: "p" }, `${fmt(protein)} g / 100 g`, cal))
-          : el("button", { class: "tile", type: "button", onclick: () => addEntry({ name, serving, protein }) },
+          : el("button", { class: "tile", type: "button", onclick: () => addEntry({ name, serving, protein, kcal }) },
               el("b", {}, name), el("small", {}, serving || "1 serving"), el("span", { class: "p" }, `+${fmt(protein)} g`, cal));
         if (g.custom) {
           const drop = ev => { ev.preventDefault(); ev.stopPropagation(); setCustom(state.custom.filter(c => c.id !== id)); };
@@ -878,7 +951,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       }
       groups.append(el("div", { class: "group" }, el("span", { class: "label" }, g.group), tiles));
     }
-    if (!shown) groups.append(el("p", { class: "hint" }, `No match for "${state.query}". Add it below with its protein.`));
+    if (!shown) groups.append(el("p", { class: "hint" }, `No match for "${state.query}". Add it below with its protein and calories.`));
   }
 
   function renderHistory() {
@@ -902,6 +975,15 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const avg = logged.length ? Math.round(logged.reduce((a, b) => a + b, 0) / logged.length) : 0;
     $("avg").textContent = !logged.length ? (tgt ? "Dashed line = your target" : "")
       : tgt ? `Avg ${avg} g · hit ${totals.filter(v => v >= tgt).length}/7 · dashed line = target` : `Avg ${avg} g`;
+    // Calories: today isn't counted until it's over.
+    const done = days.filter(d => d < today && entries(d).length);
+    const b = burn();
+    const avgK = done.length ? done.reduce((s, d) => s + kcalOf(entries(d)).sum, 0) / done.length : 0;
+    const gap = b ? b.total - avgK : 0;
+    $("avgKcal").textContent = !done.length ? "Calories: the average shows once you’ve logged a full day (today counts when it’s over)."
+      : `Calories: avg ${kc(avgK)} a day over ${done.length} logged day${done.length === 1 ? "" : "s"}`
+        + (b ? ` · ${kc(Math.abs(gap))} ${gap >= 0 ? "under" : "over"} your ≈ ${kc(b.total)} burn, about ${fmt(Math.abs(gap) * 7 / 7700)} kg of fat a week ${gap >= 0 ? "lost" : "gained"} (gym not counted).` : ".")
+        + (done.some(d => kcalOf(entries(d)).missing) ? " Some foods those days have no calories, so the average is low." : "");
   }
 
   function renderPlan() {
@@ -1033,7 +1115,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
 
   function renderSettings() {
     const p = state.profile;
-    for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"]]) {
+    for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"], ["sAge", "age"], ["sSteps", "stepsPerDay"]]) {
       const inp = $(id); if (document.activeElement !== inp) inp.value = p[key] ?? "";
     }
     const seg = $("factorSeg"); seg.replaceChildren();
@@ -1051,6 +1133,14 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     $("calcBmi").textContent = h > 0 && w > 0
       ? `BMI now ${bmi(w)} at ${fmt(w)} kg${t > 0 ? ` · at ${fmt(t)} kg it would be ${bmi(t)}` : ""}.`
       : "Add your weight and height to see your BMI.";
+    const b = burn();
+    $("burnEq").textContent = b ? `Burn ≈ ${kc(b.rest)} + ${kc(b.daily)} + ${kc(b.walk)} = ${kc(b.total)} kcal a day` : "Add your age, weight and height to estimate what you burn.";
+    $("burnHow").textContent = b
+      ? `Resting ${kc(b.rest)}: ${b.bf != null ? `from your lean mass at ${Math.round(b.bf)}% body fat (Body section)` : "for your weight, height and age"}. `
+        + `Daily life ${kc(b.daily)}: a desk day, about ${DESK_STEPS.toLocaleString("en-GB")} steps. `
+        + `Walking ${kc(b.walk)}: the other ${Math.max(0, b.steps - DESK_STEPS).toLocaleString("en-GB")} of your ${b.steps.toLocaleString("en-GB")} steps. `
+        + "Gym sessions aren't counted, so gym days burn more. Eating 500 under your burn loses about 0.5 kg of fat a week. Every formula is an estimate (±10%): if your waist and weekly average weight don't move after 3 weeks, trust them over this."
+      : "Resting burn comes from your weight, height and age (or your lean mass once you've measured waist and neck under Body), plus a desk day and your steps.";
   }
 
   // ---- wiring ----
@@ -1058,16 +1148,18 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   $("nextDay").addEventListener("click", () => { if (state.date < todayStr()) { state.date = shiftDate(state.date, 1); render(); } });
   $("dateLabel").addEventListener("click", () => { state.date = todayStr(); render(); });
   $("status").addEventListener("click", () => { if (!targetG()) { $("settings").open = true; $("sTarget").focus(); } });
+  $("kcalStatus").addEventListener("click", () => { if (!burn()) { $("settings").open = true; $(state.profile.heightCm > 0 ? "sAge" : "sHeight").focus(); } });
   $("search").addEventListener("input", e => { state.query = e.target.value; renderGroups(); });
   $("customForm").addEventListener("submit", e => {
     e.preventDefault();
     const name = $("cName").value.trim(), protein = Number($("cProtein").value);
-    if (!name || !(protein >= 0)) return;
+    const kcal = $("cKcal").value === "" ? null : Number($("cKcal").value);
+    if (!name || !(protein >= 0) || (kcal != null && !(kcal >= 0))) return;
     if ($("cSave").checked && !state.custom.some(c => c.name.toLowerCase() === name.toLowerCase())) {
-      setCustom([...state.custom, { id: uid(), name, serving: "", protein }]);
+      setCustom([...state.custom, { id: uid(), name, serving: "", protein, ...(kcal != null && { kcal }) }]);
     }
-    addEntry({ name, serving: "", protein });
-    $("cName").value = ""; $("cProtein").value = "";
+    addEntry({ name, serving: "", protein, kcal });
+    $("cName").value = ""; $("cProtein").value = ""; $("cKcal").value = "";
   });
   $("bFields").append(...MEASURES.map(m => el("div", { class: "field" },
     el("label", { for: `b-${m.id}` }, `${m.name} (${m.unit})`),
@@ -1096,10 +1188,12 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     render(); fillBodyForm();
     msg.className = "msg"; msg.textContent = d === todayStr() ? "Saved." : `Saved for ${shortDate(d)}.`;
   });
-  for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"], ["sWaistTarget", "waistTargetCm"]]) {
+  for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"], ["sWaistTarget", "waistTargetCm"], ["sAge", "age"], ["sSteps", "stepsPerDay"]]) {
     $(id).addEventListener("change", e => {
-      const v = e.target.value === "" ? null : Number(e.target.value);
-      if (v !== null && !(v > 0)) return;
+      let v = e.target.value === "" ? null : Number(e.target.value);
+      if (key === "stepsPerDay" && v === null) v = DEFAULT_PROFILE.stepsPerDay;
+      if (v !== null && !(v >= Number(e.target.min) && v <= Number(e.target.max))) { render(); return; }
+      if (key === "age" || key === "stepsPerDay") v = v === null ? null : Math.round(v);
       setProfile({ [key]: v });
     });
   }
