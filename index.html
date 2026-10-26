@@ -265,7 +265,6 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
         <button class="pill" id="kcalStatus" type="button">Estimate your burn</button>
       </div>
       <div class="bar" id="kbar" role="img" aria-label="Calories against target"></div>
-      <span class="note" id="dayBurn"></span>
       <span class="note" id="kcalNote"></span>
     </div>
   </section>
@@ -505,7 +504,6 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     profile: { ...DEFAULT_PROFILE },
     custom: [],
     days: {},            // date -> entries[]
-    gym: {},             // date -> Gym Plan session ids logged that day (signed in only)
     body: {},            // date -> { waist, weight, neck, ... }
     chart: "protein",
     date: todayStr(),
@@ -547,7 +545,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   // What a day burns, estimated. Resting burn is Katch–McArdle (from lean mass) when the Body section gives a
   // body-fat estimate, otherwise Mifflin–St Jeor for men. A desk day is resting × 1.2, which already covers about
   // 5,000 steps (the usual cut-off for "sedentary"); steps beyond that cost about 0.5 kcal per kg per km walked,
-  // with a stride of 41.5% of height. Gym sessions and futsal come on top (dayBurn).
+  // with a stride of 41.5% of height. Nothing else is counted (no gym or sport), so it errs low on purpose.
   const DESK_STEPS = 5000;
   function burn(p = state.profile) {
     const w = Number(p.weightKg), h = Number(p.heightCm), age = Number(p.age);
@@ -560,18 +558,6 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const r10 = n => Math.round(n / 10) * 10;
     const parts = { rest: r10(rest), daily: r10(rest * 0.2), walk: r10(walk) };
     return { ...parts, total: parts.rest + parts.daily + parts.walk, steps, bf, w };
-  }
-  // Net cost on top of the desk day, in kcal per kg of body weight. A gym visit is 45 min of weights
-  // (net 2.5 MET) then 30 min of stairs (net 7 MET); futsal, every Thursday, is about an hour at net 6 MET.
-  const GYM_PER_KG = 2.5 * 0.75 + 7 * 0.5, FUTSAL_PER_KG = 6, FUTSAL_DAY = 4;
-  const SESSIONS = { legs: "Legs", push: "Push", pull: "Pull", full: "Full body" };
-  function dayBurn(date, b = burn()) {
-    if (!b) return null;
-    const sessions = state.gym[date] || [];
-    const gym = Math.round(sessions.length * GYM_PER_KG * b.w / 10) * 10;
-    const [y, m, d] = date.split("-").map(Number);
-    const futsal = new Date(y, m - 1, d).getDay() === FUTSAL_DAY ? Math.round(FUTSAL_PER_KG * b.w / 10) * 10 : 0;
-    return { ...b, sessions, gym, futsal, total: b.total + gym + futsal };
   }
   const daysBetween = (a, b) => { const t = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((t(b) - t(a)) / 864e5); };
   // Real burn from your own data over the last 28 days: what you ate on average, plus the energy in the
@@ -594,22 +580,12 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const eaten = logged.reduce((a, d) => a + kcalOf(entries(d)).sum, 0) / logged.length;
     return { ...out, ready: true, eaten, perWeek: slope * 7, total: Math.round((eaten - slope * 7700) / 10) * 10 };
   }
-  // The daily calorie target: your average burn minus 500 (about 0.5 kg of fat a week), the same every day
-  // so gym days don't mean eating more. Average burn is your real burn once there's enough data, otherwise
-  // the formula plus your gym and futsal averaged over the days logged so far (up to 28).
+  // The daily calorie target: the formula burn (resting + desk day + steps) minus 500, about 0.5 kg of fat a
+  // week. It deliberately ignores gym and sport, and the real burn is shown only as a check, so it stays conservative.
   const DEFICIT = 500;
   function calTarget() {
     const b = burn();
-    const real = realBurn();
-    if (real.ready) return { avg: real.total, target: real.total - DEFICIT, source: "real", real, b };
-    if (!b) return null;
-    const today = todayStr();
-    const first = [...Object.keys(state.days), ...Object.keys(state.gym)].filter(d => d <= today).sort()[0] || today;
-    const n = Math.min(28, Math.max(7, daysBetween(first, today) + 1));
-    let extra = 0;
-    for (let i = 0; i < n; i++) { const d = dayBurn(shiftDate(today, -i), b); extra += d.gym + d.futsal; }
-    const avg = b.total + Math.round(extra / n / 10) * 10;
-    return { avg, target: avg - DEFICIT, source: "formula", real, b, n, extra: avg - b.total };
+    return b ? { avg: b.total, target: b.total - DEFICIT, b } : null;
   }
   const GRAMS_KEY = "protein-log:last-grams", CHART_KEY = "protein-log:chart";
   const lastGrams = (name, fallback = 200) => { try { return JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}")[name] || fallback; } catch { return fallback; } };
@@ -654,14 +630,11 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   });
   const cloud = {
     async load() {
-      const [p, d, b, g] = await Promise.all([
+      const [p, d, b] = await Promise.all([
         sb.from("protein_profile").select("weight_kg,height_cm,target_kg,g_per_kg,waist_target_cm,age,steps_per_day,custom_foods").maybeSingle(),
         sb.from("protein_days").select("date,entries").order("date", { ascending: false }).limit(1000),
         sb.from("body_measurements").select("date,measures").order("date", { ascending: false }).limit(1000),
-        sb.from("workouts").select("date,session").gte("date", shiftDate(todayStr(), -60)),   // Gym Plan's log, for the burn
       ]);
-      const gym = {};
-      for (const r of g.error ? [] : g.data) (gym[r.date] ||= []).push(r.session);
       const prof = must(p), days = must(d), body = must(b);
       return {
         profile: prof ? { weightKg: num(prof.weight_kg), heightCm: num(prof.height_cm), targetKg: num(prof.target_kg), gPerKg: num(prof.g_per_kg) ?? 1.8, waistTargetCm: num(prof.waist_target_cm),
@@ -669,7 +642,6 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
         body: Object.fromEntries(body.map(r => [r.date, r.measures && typeof r.measures === "object" ? r.measures : {}])),
         custom: prof && Array.isArray(prof.custom_foods) ? prof.custom_foods : [],
         days: Object.fromEntries(days.map(r => [r.date, Array.isArray(r.entries) ? r.entries : []])),
-        gym,
       };
     },
     async saveDay(date) {
@@ -725,7 +697,6 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       state.profile = { ...DEFAULT_PROFILE, ...(l.profile || {}) };
       state.custom = Array.isArray(l.custom) ? l.custom : [];
       state.days = l.days && typeof l.days === "object" ? l.days : {};
-      state.gym = {};
       state.body = l.body && typeof l.body === "object" ? l.body : {};
       render(); if (!bodyDirty) fillBodyForm(); return;
     }
@@ -737,7 +708,6 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       state.profile = { ...DEFAULT_PROFILE, ...(c.profile || {}) };
       state.custom = c.custom;
       state.days = c.days;
-      state.gym = c.gym;
       state.body = c.body;
       renderBanner();
     } catch {
@@ -943,10 +913,9 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     }
     bar.setAttribute("aria-label", tgt ? `${fmt(total)} of ${tgt} grams` : `${fmt(total)} grams`);
 
-    // calories against the daily target (average burn − 500), with the day's own burn underneath
+    // calories against the daily target (burn − 500)
     const { sum: kIn, missing } = kcalOf(list);
     const ct = calTarget();
-    const db = dayBurn(state.date);
     $("kcal").textContent = kc(kIn);
     $("kcalTarget").textContent = ct ? kc(ct.target) : "–";
     const ks = $("kcalStatus");
@@ -965,16 +934,9 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       kbar.append(el("span", { class: "mark", style: `left:${(ct.target / kscale) * 100}%` }));
     }
     kbar.setAttribute("aria-label", ct ? `${kc(kIn)} of a ${kc(ct.target)} calorie target` : `${kc(kIn)} calories`);
-    // With a real burn, the formula's day total would disagree with it, so only the day's activity shows.
-    const acts = db ? [db.gym ? `gym (${db.sessions.map(s => SESSIONS[s] || s).join(" + ")}) +${kc(db.gym)}` : "", db.futsal ? `futsal +${kc(db.futsal)}` : ""].filter(Boolean).join(", ") : "";
-    const when = state.date === todayStr() ? "Today" : prettyDate(state.date);
-    $("dayBurn").textContent = !db ? "" : ct?.source === "real" ? (acts ? `${when}: ${acts}` : "")
-      : `${when} you burn ≈ ${kc(db.total)}${acts ? ` (${acts})` : ""}`;
     $("kcalNote").textContent = [
       !ct ? "Add your age, weight and height under Your target and burn to set a calorie target."
-        : ct.source === "real" ? `Target = your real burn ${kc(ct.avg)} − ${DEFICIT}.`
-        : `Target = average burn ${kc(ct.avg)} − ${DEFICIT}. Real burn from your data: ${Math.min(ct.real.weighIns, REAL.weighIns)}/${REAL.weighIns} weigh-ins, ${Math.min(ct.real.spread, REAL.days)}/${REAL.days} days.`,
-      ct && !user ? "Sign in to count your Gym Plan sessions." : "",
+        : `Target = burn ${kc(ct.avg)} (resting + ${ct.b.steps.toLocaleString("en-GB")} steps, no gym or sport) − ${DEFICIT}.`,
       missing ? `${missing} food${missing === 1 ? " has" : "s have"} no calories, so the total is low.` : "",
     ].filter(Boolean).join(" ");
 
@@ -1098,7 +1060,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const gap = ct ? ct.avg - avgK : 0;
     $("avgKcal").textContent = !done.length ? "Calories: the average shows once you’ve logged a full day (today counts when it’s over)."
       : `Calories: avg ${kc(avgK)} a day over ${done.length} logged day${done.length === 1 ? "" : "s"}`
-        + (ct ? ` · ${kc(Math.abs(gap))} ${gap >= 0 ? "under" : "over"} your ≈ ${kc(ct.avg)} ${ct.source === "real" ? "real " : "average "}burn, about ${fmt(Math.abs(gap) * 7 / 7700)} kg of fat a week ${gap >= 0 ? "lost" : "gained"}.` : ".")
+        + (ct ? ` · ${kc(Math.abs(gap))} ${gap >= 0 ? "under" : "over"} your ≈ ${kc(ct.avg)} burn, about ${fmt(Math.abs(gap) * 7 / 7700)} kg of fat a week ${gap >= 0 ? "lost" : "gained"}.` : ".")
         + (done.some(d => kcalOf(entries(d)).missing) ? " Some foods those days have no calories, so the average is low." : "");
   }
 
@@ -1273,17 +1235,16 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const b = burn(), ct = calTarget(), real = realBurn();
     $("burnEq").textContent = ct ? `Target = ${kc(ct.avg)} − ${DEFICIT} = ${kc(ct.target)} kcal a day` : "Add your age, weight and height to estimate what you burn.";
     const formula = b
-      ? `Formula: resting ${kc(b.rest)} (${b.bf != null ? `from your lean mass at ${Math.round(b.bf)}% body fat` : "for your weight, height and age"}) `
+      ? `Burn: resting ${kc(b.rest)} (${b.bf != null ? `from your lean mass at ${Math.round(b.bf)}% body fat` : "for your weight, height and age"}) `
         + `+ desk day ${kc(b.daily)} (about ${DESK_STEPS.toLocaleString("en-GB")} steps) `
         + `+ walking ${kc(b.walk)} (the other ${Math.max(0, b.steps - DESK_STEPS).toLocaleString("en-GB")} of your ${b.steps.toLocaleString("en-GB")} steps) = ${kc(b.total)}`
-        + (ct?.source === "formula" ? `, + gym and futsal averaged over the last ${ct.n} days ${kc(ct.extra)} = ${kc(ct.avg)}. ` : ". ")
-        + `A gym visit adds ≈ ${kc(Math.round(GYM_PER_KG * b.w / 10) * 10)} (45 min weights + 30 min stairs), futsal on Thursdays ≈ ${kc(Math.round(FUTSAL_PER_KG * b.w / 10) * 10)}. `
+        + ". Gym and sport aren't counted, so the target stays on the safe side. "
       : "";
     const realTxt = real.ready
-      ? `Real burn ≈ ${kc(real.total)}: over ${real.period} days you ate ${kc(real.eaten)} a day on average and your weight moved ${real.perWeek <= 0 ? "−" : "+"}${fmt(Math.abs(real.perWeek))} kg a week. The target uses this. `
+      ? `Real burn ≈ ${kc(real.total)}: over ${real.period} days you ate ${kc(real.eaten)} a day on average and your weight moved ${real.perWeek <= 0 ? "−" : "+"}${fmt(Math.abs(real.perWeek))} kg a week. This is a check only: the target stays on the conservative formula. `
         + (real.waistChange != null ? `Your waist moved ${real.waistChange <= 0 ? "−" : "+"}${fmt(Math.abs(real.waistChange))} cm over the same days: if it's falling, the loss is fat. ` : "Measure your waist too, to check the loss is fat. ")
         + "The first 2 weeks of a diet read high, because you lose water as well as fat."
-      : `Real burn comes from your own weigh-ins and food log, and replaces the formula once there's enough: ${Math.min(real.weighIns, REAL.weighIns)}/${REAL.weighIns} weigh-ins spread over ${Math.min(real.spread, REAL.days)}/${REAL.days} days, with food logged on ${real.period ? Math.round(real.logged / real.period * 100) : 0}% of them (needs ${REAL.logged * 100}%).`;
+      : `A check from your own data (real burn) shows once there's enough: ${Math.min(real.weighIns, REAL.weighIns)}/${REAL.weighIns} weigh-ins spread over ${Math.min(real.spread, REAL.days)}/${REAL.days} days, with food logged on ${real.period ? Math.round(real.logged / real.period * 100) : 0}% of them (needs ${REAL.logged * 100}%).`;
     $("burnHow").textContent = formula + realTxt + ` Eating ${DEFICIT} under your burn loses about 0.5 kg of fat a week.`;
   }
 

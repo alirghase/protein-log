@@ -21,18 +21,16 @@ Live at **https://alirghase.github.io/protein-log/**.
 - **Calories:** every built-in food shows its calories next to its protein (per serving, or per 100 g
   for foods logged by weight). The day's total sits under the protein total, against an estimate of
   what you burn, with how far under or over you are. Each meal and each logged food shows its calories.
-- **Calorie target:** your average burn minus 500 (about 0.5 kg of fat a week), the same every day so
-  gym days don't mean eating more. The bar turns orange past it.
-- **Burn estimate (formula):** resting burn (Katch–McArdle from lean mass once the Body section has
-  your waist and neck, otherwise Mifflin–St Jeor from weight, height and age) × 1.2 for a desk day,
-  plus walking for your average steps beyond the ~5,000 a desk day already covers (default 10,000;
-  about 0.5 kcal per kg per km). On top: each Gym Plan session logged that day (45 min weights + 30 min
-  stairs, ≈ 5.4 kcal per kg) and futsal every Thursday (≈ 6 kcal per kg). Signed in,
-  sessions come straight from the Gym Plan log.
-- **Real burn (from your data):** once there are 6+ weigh-ins over 14+ days in the last 28, with food
-  logged on 80% of those days, the target switches to what you actually burn: average calories eaten
-  plus the weight lost (a least-squares trend × 7,700 kcal per kg). Your waist change over the same
-  days shows beside it, to check the loss is fat.
+- **Calorie target:** your burn minus 500 (about 0.5 kg of fat a week), the same every day. The bar
+  turns orange past it. It's deliberately conservative: it assumes you only eat and walk.
+- **Burn estimate:** resting burn (Katch–McArdle from lean mass once the Body section has your waist
+  and neck, otherwise Mifflin–St Jeor from weight, height and age) × 1.2 for a desk day, plus walking
+  for your average steps beyond the ~5,000 a desk day already covers (default 10,000; about 0.5 kcal
+  per kg per km). Gym and sport aren't counted.
+- **Real burn (a check only):** once there are 6+ weigh-ins over 14+ days in the last 28, with food
+  logged on 80% of those days, the settings show what you actually burn: average calories eaten plus
+  the weight lost (a least-squares trend × 7,700 kcal per kg), with your waist change over the same
+  days. The target doesn't use it.
 - **Usual day:** **Log staples** adds porridge, honey and a scoop at breakfast and yoghurt and a banana
   as snacks; an empty day also offers **Copy the day before**. Undo takes back the whole batch.
 - **Aldi rice pouches:** the eight Worldwide Foods 250 g pouches, one tap each.
