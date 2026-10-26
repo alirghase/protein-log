@@ -1,6 +1,7 @@
 # Protein Log
 
-Log protein by meal through the day, against a daily target set from your target weight.
+Log protein and calories by meal through the day, against a protein target set from your target
+weight and an estimate of what you burn.
 
 Live at **https://alirghase.github.io/protein-log/**.
 
@@ -14,17 +15,26 @@ Live at **https://alirghase.github.io/protein-log/**.
 - **By weight:** meat asks for grams (type any weight or tap 50–400 g in 50 g steps; each button shows
   its protein) and works out the protein from its per-100 g value. It remembers your last weight for
   each food. In the day's list, type a new weight or nudge it by 50 g.
-- **Built-in foods:** staples (oats, protein scoop, protein yoghurt, fruit), tinned fish, air-fried
-  chicken breast (weighed cooked), and a few others. Values are typical UK label figures. Each
+- **Built-in foods:** staples (oats, honey, protein scoop, protein yoghurt, fruit), tinned fish and
+  air-fried chicken breast (weighed cooked). No ready meals. Values are typical UK label figures. Each
   food is listed once: anything in the Aldi range below isn't repeated as a generic item.
 - **Calories:** every built-in food shows its calories next to its protein (per serving, or per 100 g
-  for foods logged by weight), and the weigh panel shows the calories for the weight you pick.
+  for foods logged by weight). The day's total sits under the protein total, against an estimate of
+  what you burn, with how far under or over you are. Each meal and each logged food shows its calories.
+- **Burn estimate:** resting burn (Katch–McArdle from lean mass once the Body section has your waist
+  and neck, otherwise Mifflin–St Jeor from weight, height and age) × 1.2 for a desk day, plus walking
+  for your average steps beyond the ~5,000 a desk day already covers (default 10,000 steps; about
+  0.5 kcal per kg per km). Gym sessions aren't counted, so gym days burn more. It's an estimate:
+  trust your waist and weekly average weight over it.
 - **Aldi rice pouches:** the eight Worldwide Foods 250 g pouches, one tap each.
 - **Aldi range:** Aldi's salmon, trout, white fish, tuna, mackerel, chicken, turkey, beef and lamb, air-fried
   and weighed cooked (hot smoked fish is ready to eat). Each has quick buttons for 1 or 2 fillets or steaks
   at their typical cooked weight, so you can log without scales; weigh it for an exact figure.
-- **Your own foods:** type a name and its protein; it's saved to **My foods** for one-tap adds.
-- **Last 7 days:** each day against the target. Tap a day to see or edit it.
+- **Your own foods:** type a name, its protein and (optionally) its calories; it's saved to **My foods**
+  for one-tap adds.
+- **Last 7 days:** each day against the target. Tap a day to see or edit it. Below it, the average
+  calories over the finished days, how far under or over your burn that is, and what that means in kg
+  of fat a week.
 - **Example week:** a sample rotation of two main proteins a day (chicken, sardines, white fish and
   red meat), with the day you're viewing highlighted.
 
@@ -44,6 +54,7 @@ and clearing the browser deletes it.
 One `index.html`: plain HTML, CSS and JavaScript, no build step. `supabase-js` and the fonts load
 from CDNs.
 
-The tables (`protein_days`, one row per logged day, and `protein_profile`, one row per account) and
+The tables (`protein_days`, one row per logged day, and `protein_profile`, one row per account, which
+also holds age and steps a day for the burn estimate) and
 their row rules live with the Gym Plan project, in
 [`gym-plan/supabase/migrations`](https://github.com/alirghase/gym-plan/tree/main/supabase/migrations).
