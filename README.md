@@ -27,7 +27,7 @@ Live at **https://alirghase.github.io/protein-log/**.
   your waist and neck, otherwise Mifflin–St Jeor from weight, height and age) × 1.2 for a desk day,
   plus walking for your average steps beyond the ~5,000 a desk day already covers (default 10,000;
   about 0.5 kcal per kg per km). On top: each Gym Plan session logged that day (45 min weights + 30 min
-  stairs, ≈ 5.4 kcal per kg) and futsal when you tick **Played futsal** (≈ 6 kcal per kg). Signed in,
+  stairs, ≈ 5.4 kcal per kg) and futsal every Thursday (≈ 6 kcal per kg). Signed in,
   sessions come straight from the Gym Plan log.
 - **Real burn (from your data):** once there are 6+ weigh-ins over 14+ days in the last 28, with food
   logged on 80% of those days, the target switches to what you actually burn: average calories eaten
