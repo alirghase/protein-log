@@ -50,7 +50,9 @@ Live at **https://alirghase.github.io/protein-log/**.
 - **Check-in:** **Copy for Claude** copies the last 28 days as plain text (targets, each logged day's
   protein and calories, averages, body measurements and the most-logged foods) to paste into Claude or
   another AI for a summary. Food starts at your first logged day if that's later, so earlier days don't
-  count as missed. Nothing is sent anywhere; it only goes to the clipboard.
+  count as missed. Signed in, it adds your Gym Plan sessions from the same 28 days (same account), with each
+  lift's first and latest top set, and asks whether your lifts are holding while your waist drops. Nothing is
+  sent anywhere; it only goes to the clipboard.
 - **Example week:** a sample rotation of two main proteins a day (chicken, sardines, white fish and
   red meat), with the day you're viewing highlighted.
 
