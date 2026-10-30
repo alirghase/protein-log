@@ -711,6 +711,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       state.custom = Array.isArray(l.custom) ? l.custom : [];
       state.days = l.days && typeof l.days === "object" ? l.days : {};
       state.body = l.body && typeof l.body === "object" ? l.body : {};
+      workouts = null;
       render(); if (!bodyDirty) fillBodyForm(); return;
     }
     if (Object.values(flushing).some(Boolean)) return;   // don't overwrite changes still saving
@@ -722,6 +723,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       state.custom = c.custom;
       state.days = c.days;
       state.body = c.body;
+      loadWorkouts();
       renderBanner();
     } catch {
       showError("Couldn’t load your log. Check your signal, then reload the page.");
@@ -1254,7 +1256,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   // The last 28 days as plain text for an AI to read: targets, each logged day, averages, body measurements
   // and the most-logged foods. Today is listed but left out of the averages, since it isn't over.
   const CHECKIN_DAYS = 28;
-  function checkinText() {
+  function checkinText(workouts = null) {
     const p = state.profile, today = todayStr(), winFrom = shiftDate(today, 1 - CHECKIN_DAYS);
     // Food starts at the first logged day if that's later, so days before you started don't count as missed.
     const firstLogged = Object.keys(state.days).filter(d => entries(d).length).sort()[0];
@@ -1270,7 +1272,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const long = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }); };
     const lines = [
       `Protein Log check-in, ${long(today)} (food since ${long(from)})`,
-      "Summarise how I'm doing against my targets, what's going well, and the one or two things to change.",
+      `Summarise how I'm doing against my targets${workouts?.length ? ", whether my lifts are holding while my waist drops" : ""}, what's going well, and the one or two things to change.`,
       "",
       "Targets",
       tgt ? `- Protein: ${tgt} g a day (${fmt(p.targetKg)} kg target weight × ${Number(p.gPerKg).toFixed(1)} g/kg)` : "- Protein: not set",
@@ -1305,10 +1307,44 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     for (const x of logged) for (const name of new Set(entries(x.d).map(e => e.name))) counts.set(name, (counts.get(name) || 0) + 1);
     const top = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 10);
     if (top.length) lines.push("", "Most-logged foods (days)", top.map(([n, c]) => `${n} ${c}`).join(", "));
+    if (workouts?.length) lines.push("", ...trainingLines(workouts, winFrom, today));
     return lines.filter(l => l != null).join("\n");
   }
+  // Training from the Gym Plan app: same account and Supabase project, so its rows are readable here.
+  const SESSIONS = { legs: "Legs", push: "Push", pull: "Pull", full: "Full body" };
+  const WORDS = { db: "dumbbell", ext: "extension", iso: "iso-lateral", rdl: "RDL", chin: "chin-up", lat: "lateral" };
+  const liftName = id => { const s = id.split("-").map(w => WORDS[w] ?? w).join(" "); return s[0].toUpperCase() + s.slice(1); };
+  function trainingLines(workouts, from, today) {
+    const ws = workouts.filter(w => SESSIONS[w.session] && w.date >= from).sort((a, b) => a.date.localeCompare(b.date));
+    if (!ws.length) return [];
+    const days = daysBetween(ws[0].date > from ? ws[0].date : from, today) + 1;
+    const lines = [`Training (Gym Plan) — ${ws.length} sessions in ${days} days (plan ≈ ${Math.round(days / 7 * 4)}, 4 a week); ${ws.filter(w => w.date > shiftDate(today, -7)).length} in the last 7 days`,
+      ...ws.map(w => `- ${shortDate(w.date)}: ${SESSIONS[w.session]}`),
+      "", "Lifts, top set per session, first → latest (assisted chin-up kg is assistance: lower is stronger)"];
+    // Top set: the heaviest weight (least assistance for the assisted chin-up), with the most reps done at it.
+    const top = (id, sets) => {
+      const kg = id === "assisted-chin" ? Math.min(...sets.map(x => x.kg)) : Math.max(...sets.map(x => x.kg));
+      return `${fmt(kg)} kg × ${Math.max(...sets.filter(x => x.kg === kg).map(x => x.reps))}`;
+    };
+    const byLift = new Map();
+    for (const w of ws) for (const [id, sets] of Object.entries(w.entries || {})) if (Array.isArray(sets) && sets.length) {
+      if (!byLift.has(id)) byLift.set(id, []);
+      byLift.get(id).push({ date: w.date, sets });
+    }
+    for (const [id, h] of byLift) {
+      const a = h[0], b = h.at(-1);
+      lines.push(`- ${liftName(id)}: ${top(id, a.sets)} (${shortDate(a.date)})${h.length > 1 ? ` → ${top(id, b.sets)} (${shortDate(b.date)}), ${h.length} sessions` : ""}`);
+    }
+    return lines;
+  }
+  // Loaded with the log, not on tap: Safari only lets a tap copy if nothing is awaited first.
+  let workouts = null;
+  async function loadWorkouts() {
+    try { workouts = must(await sb.from("workouts").select("date,session,entries").gte("date", shiftDate(todayStr(), 1 - CHECKIN_DAYS))); } catch {}
+  }
   async function copyCheckin() {
-    const text = checkinText(), box = $("copyBox");
+    // Signed in, it adds the gym sessions; without them (signed out, or not loaded) it's food only.
+    const text = checkinText(workouts), box = $("copyBox");
     try {
       await navigator.clipboard.writeText(text);
       box.hidden = true;
