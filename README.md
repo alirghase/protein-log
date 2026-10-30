@@ -54,6 +54,8 @@ Live at **https://alirghase.github.io/protein-log/**.
 - **Example week:** a sample rotation of two main proteins a day (chicken, sardines, white fish and
   red meat), with the day you're viewing highlighted.
 
+Add it to your home screen for an app icon (`manifest.webmanifest`).
+
 ## Saving
 
 **Signed in** (email and password), the log is saved online in Supabase and shows up on any device
