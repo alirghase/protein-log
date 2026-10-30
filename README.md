@@ -33,6 +33,9 @@ Live at **https://alirghase.github.io/protein-log/**.
   logged on 80% of those days, the settings show what you actually burn: average calories eaten plus
   the weight lost (a least-squares trend × 7,700 kcal per kg), with your waist change over the same
   days. The target doesn't use it.
+- **Close the gap:** today, while protein is short of target, up to three one-tap options from foods you've
+  eaten in the last 14 days that would close it (1–2 servings, or the grams of a by-weight food up to 400 g),
+  preferring ones that fit the calories left.
 - **Usual day:** **Log staples** adds porridge, honey and a scoop at breakfast and yoghurt and a banana
   as snacks; an empty day also offers **Copy the day before**. Undo takes back the whole batch.
 - **Aldi rice pouches:** the eight Worldwide Foods 250 g pouches, one tap each.
