@@ -386,7 +386,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     { id: "dinner", name: "Dinner", color: "var(--m-dinner)" },
     { id: "snack", name: "Snacks", color: "var(--m-snack)" },
   ];
-  // Each food: id, name, serving, protein, kcal. Foods logged by weight give both per 100 g cooked.
+  // Each food: id, name, serving, protein, kcal. Foods logged by weight give both per 100 g (cooked, unless the group says raw).
   // Calories are typical label values for the kind of food, not read off each pack.
   const PRESETS = [
     { group: "Staples", items: [
@@ -418,6 +418,10 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     // Foods in the Aldi range below aren't repeated here.
     { group: "Air-fried (by weight, cooked)", per100: true, items: [
       ["af-chicken", "Chicken breast fillet", "cooked", 31, 165],
+    ]},
+    // Weighed raw: type the weight on the pack. Protein and calories are per 100 g raw.
+    { group: "By pack weight (raw)", per100: true, items: [
+      ["raw-salmon", "Salmon fillet", "raw, pack weight", 20, 215, ["pack", 474, [1]]],
     ]},
     // Aldi range, air-fried and weighed cooked (hot smoked fish is ready to eat, weighed as is).
     // The last field is one piece's typical cooked weight from the pack, for one-tap adds without scales

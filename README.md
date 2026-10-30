@@ -16,7 +16,8 @@ Live at **https://alirghase.github.io/protein-log/**.
   its protein) and works out the protein from its per-100 g value. It remembers your last weight for
   each food. In the day's list, type a new weight or nudge it by 50 g.
 - **Built-in foods:** staples (oats, honey, protein scoop, protein yoghurt, fruit), tinned fish and
-  air-fried chicken breast (weighed cooked). No ready meals. Values are typical UK label figures. Each
+  air-fried chicken breast (weighed cooked), and a salmon fillet logged by its raw pack weight (474 g
+  to start; type any weight). No ready meals. Values are typical UK label figures. Each
   food is listed once: anything in the Aldi range below isn't repeated as a generic item.
 - **Calories:** every built-in food shows its calories next to its protein (per serving, or per 100 g
   for foods logged by weight). The day's total sits under the protein total, against an estimate of
