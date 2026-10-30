@@ -15,8 +15,9 @@ Live at **https://alirghase.github.io/protein-log/**.
 - **By weight:** meat asks for grams (type any weight or tap 50–400 g in 50 g steps; each button shows
   its protein) and works out the protein from its per-100 g value. It remembers your last weight for
   each food. In the day's list, type a new weight or nudge it by 50 g.
-- **Built-in foods:** staples (oats, honey, protein scoop, protein yoghurt, fruit), tinned fish and
-  air-fried chicken breast (weighed cooked), and a salmon fillet logged by its raw pack weight (474 g
+- **Built-in foods:** staples (oats, honey, protein scoop, protein yoghurt, fruit), tinned fish,
+  air-fried chicken breast and Roosters Hot & Spicy chicken tenders (weighed cooked; the tenders have
+  half-pack buttons from the label), and a salmon fillet logged by its raw pack weight (474 g
   to start; type any weight). No ready meals. Values are typical UK label figures. Each
   food is listed once: anything in the Aldi range below isn't repeated as a generic item.
 - **Calories:** every built-in food shows its calories next to its protein (per serving, or per 100 g
