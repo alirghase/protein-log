@@ -156,6 +156,8 @@ h2 { font-family: var(--display); font-stretch: 112%; font-size: 15px; font-weig
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chips button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600; font-family: var(--mono); }
 .chips button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.gap { align-items: center; }
+.gap .note { margin-right: 2px; }
 .qty input { width: 52px; border: 0; background: transparent; text-align: center; font-family: var(--mono); font-size: 13px; padding: 0; -moz-appearance: textfield; }
 .qty input::-webkit-inner-spin-button, .qty input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
@@ -258,6 +260,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     </div>
     <div class="bar" id="bar" role="img" aria-label="Protein progress"></div>
     <div class="legend" id="legend"></div>
+    <div class="chips gap" id="gap" hidden></div>
     <div class="cal">
       <div class="big">
         <span class="val" id="kcal">0</span>
@@ -835,6 +838,31 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     saveDay(date); render();
   }
 
+  // Foods eaten in the last 14 days that would close today's protein gap, most-eaten first, preferring ones
+  // that fit the calories left. A serving food counts if 1 or 2 servings do it; a by-weight food gives the grams, up to 400 g.
+  function gapOptions(left, kcalLeft) {
+    const seen = new Map();   // name -> most recent entry and the days it was eaten on
+    for (let i = 0; i < 14; i++) for (const e of entries(shiftDate(todayStr(), -i))) {
+      const f = seen.get(e.name) || { e, days: new Set() };
+      f.days.add(i); seen.set(e.name, f);
+    }
+    const opts = [];
+    for (const { e, days } of seen.values()) {
+      if (!(e.protein > 0)) continue;
+      const k = e.kcal ?? PRESET_KCAL.get(e.name);
+      const item = { name: e.name, serving: e.serving, protein: e.protein, ...(k != null && { kcal: k }) };
+      if (e.per100) {
+        const grams = Math.ceil(left / e.protein * 10) * 10;
+        if (grams <= 400) opts.push({ item: { ...item, grams }, label: `${e.name} ${grams} g`, kcal: k == null ? null : k * grams / 100, days: days.size });
+      } else {
+        const qty = Math.ceil(left / e.protein);
+        if (qty <= 2) opts.push({ item: { ...item, qty }, label: qty > 1 ? `${qty} × ${e.name}` : e.name, kcal: k == null ? null : k * qty, days: days.size });
+      }
+    }
+    const fits = o => kcalLeft == null || (o.kcal ?? 0) <= kcalLeft;
+    return opts.sort((a, b) => fits(b) - fits(a) || b.days - a.days || (a.kcal ?? 0) - (b.kcal ?? 0)).slice(0, 3);
+  }
+
   // ---- weigh panel ----
   let weighing = null;   // { name, serving, protein, kcal?, piece? } while choosing grams
   function openWeigh(item) { weighing = item; renderWeigh(true); }
@@ -949,6 +977,13 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       kbar.append(el("span", { class: "mark", style: `left:${(ct.target / kscale) * 100}%` }));
     }
     kbar.setAttribute("aria-label", ct ? `${kc(kIn)} of a ${kc(ct.target)} calorie target` : `${kc(kIn)} calories`);
+    // today only: foods you eat that would close the protein gap, one tap to add
+    const gap = $("gap"); gap.replaceChildren();
+    const opts = tgt && state.date === todayStr() && total < tgt ? gapOptions(tgt - total, ct ? ct.target - kIn : null) : [];
+    gap.hidden = !opts.length;
+    if (opts.length) gap.append(el("span", { class: "note" }, "Close it:"),
+      ...opts.map(o => el("button", { type: "button", onclick: () => addEntries([{ ...o.item, meal: state.meal }], `Added ${o.label} to ${MEALS.find(m => m.id === state.meal).name}`) },
+        o.kcal == null ? o.label : `${o.label} · ${kc(o.kcal)} kcal`)));
     $("kcalNote").textContent = [
       !ct ? "Add your age under Your target and burn." : "",
       missing ? `${missing} food${missing === 1 ? "" : "s"} without calories.` : "",
