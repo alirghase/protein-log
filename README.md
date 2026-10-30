@@ -47,6 +47,10 @@ Live at **https://alirghase.github.io/protein-log/**.
   of fat a week.
 - **Body:** a quick weigh-in box (shows the 7-day average against the week before), the waist chart,
   and a small trend line for each tape measurement. Weight is shown as a number, not a chart.
+- **Check-in:** **Copy for Claude** copies the last 28 days as plain text (targets, each logged day's
+  protein and calories, averages, body measurements and the most-logged foods) to paste into Claude or
+  another AI for a summary. Food starts at your first logged day if that's later, so earlier days don't
+  count as missed. Nothing is sent anywhere; it only goes to the clipboard.
 - **Example week:** a sample rotation of two main proteins a day (chicken, sardines, white fish and
   red meat), with the day you're viewing highlighted.
 
