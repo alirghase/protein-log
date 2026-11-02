@@ -510,8 +510,9 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     { id: "chest", name: "Chest", unit: "cm", dir: 0, how: "Chest: across the nipples, arms by your sides, after a breath out." },
     { id: "arm", name: "Arm, flexed", unit: "cm", dir: 1, how: "Arm: the widest part of your upper arm, flexed. Holding steady while your waist drops means you’re keeping muscle." },
     { id: "thigh", name: "Thigh", unit: "cm", dir: 0, how: "Thigh: the widest part, standing with weight on both legs." },
+    { id: "fat", name: "Body fat, scale", unit: "%", dir: -1, how: "Body fat, scale: the smart scale's reading at your weigh-in. It swings a few points with water, so watch the trend. The tape estimate (waist and neck) wins when you have one." },
   ];
-  const RANGE = { cm: [10, 250], kg: [30, 300] };
+  const RANGE = { cm: [10, 250], kg: [30, 300], "%": [3, 70] };
 
   const state = {
     profile: { ...DEFAULT_PROFILE },
@@ -563,7 +564,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   function burn(p = state.profile) {
     const w = Number(p.weightKg), h = Number(p.heightCm), age = Number(p.age);
     if (!(w > 0 && h > 0)) return null;
-    const bf = navyBodyFat(series("waist").at(-1)?.v, series("neck").at(-1)?.v, h);
+    const bf = bodyFat(h)?.v;
     const rest = bf != null ? 370 + 21.6 * w * (1 - bf / 100) : age > 0 ? 10 * w + 6.25 * h - 5 * age + 5 : null;
     if (rest == null) return null;
     const steps = p.stepsPerDay ?? DEFAULT_PROFILE.stepsPerDay;
@@ -1092,6 +1093,13 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const bf = 495 / (1.0324 - 0.19077 * Math.log10(waist - neck) + 0.15456 * Math.log10(height)) - 450;
     return bf > 2 && bf < 60 ? bf : null;
   }
+  // Body fat for the burn: the tape estimate if there is one, otherwise the latest smart-scale reading.
+  function bodyFat(height) {
+    const tape = navyBodyFat(series("waist").at(-1)?.v, series("neck").at(-1)?.v, height);
+    if (tape != null) return { v: tape, src: "tape" };
+    const scale = series("fat").at(-1)?.v;
+    return scale > 0 ? { v: scale, src: "scale" } : null;
+  }
   let bodyDirty = false, armedBody = null, armTimer = null;
   function fillBodyForm() {
     const d = $("bDate").value || todayStr();
@@ -1170,7 +1178,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
         const bf = navyBodyFat(now, neck, h);
         stats.append(bf != null
           ? el("span", {}, "Body fat ≈ ", el("b", {}, `${Math.round(bf)}%`), " (US Navy tape method for men, ±3–4%)")
-          : el("span", { class: "note" }, "Add your neck to see a body-fat estimate."));
+          : el("span", { class: "note" }, "Add your neck to see a tape body-fat estimate."));
       } else stats.append(el("span", { class: "note" }, "Add your height under Your target to see waist ÷ height and body fat."));
       top.append(stats);
     } else {
@@ -1242,9 +1250,10 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     $("calcBmi").textContent = h > 0 && w > 0
       ? `BMI now ${bmi(w)} at ${fmt(w)} kg${t > 0 ? ` · at ${fmt(t)} kg it would be ${bmi(t)}` : ""}.`
       : "Add your weight and height to see your BMI.";
-    const b = burn(), ct = calTarget(), real = realBurn();
+    const b = burn(), ct = calTarget(), real = realBurn(), bf = bodyFat(h);
     $("burnEq").textContent = ct ? `${kc(ct.avg)} − ${DEFICIT} = ${kc(ct.target)} kcal a day` : "Add age, weight and height.";
     $("burnHow").textContent = [
+      b && bf ? `Resting from lean mass ${fmt(b.w * (1 - bf.v / 100))} kg (body fat ${fmt(bf.v)}%, ${bf.src === "tape" ? "tape" : "smart scale"}).` : "",
       b ? `Resting ${kc(b.rest)} + desk day ${kc(b.daily)} + ${b.steps.toLocaleString("en-GB")} steps ${kc(b.walk)}. No gym counted.` : "",
       real.ready ? `Real burn from your weigh-ins ≈ ${kc(real.total)}${real.waistChange != null ? ` (waist ${real.waistChange <= 0 ? "−" : "+"}${fmt(Math.abs(real.waistChange))} cm)` : ""}.` : "",
     ].filter(Boolean).join(" ");
@@ -1294,10 +1303,11 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const bd = bodyDates(), inWin = bd.filter(d => d >= winFrom);
     const shown = bd.length && bd[0] < winFrom ? [bd[0], ...inWin] : inWin;
     if (shown.length) {
-      lines.push("", "Body measurements (cm, weight in kg)",
+      lines.push("", "Body measurements (cm, weight in kg, scale body fat in %)",
         ...shown.map(d => `- ${long(d)}${d < winFrom ? " (first ever)" : ""}: ${MEASURES.filter(m => state.body[d][m.id] > 0).map(m => `${m.name.split(",")[0].toLowerCase()} ${fmt(state.body[d][m.id])}`).join(", ")}`));
-      const h = Number(p.heightCm), waist = series("waist").at(-1)?.v, bf = navyBodyFat(waist, series("neck").at(-1)?.v, h);
-      if (h > 0 && waist) lines.push(`- Waist ÷ height now ${(waist / h).toFixed(2)}${bf != null ? ` · body fat ≈ ${Math.round(bf)}% (US Navy tape method)` : ""}`);
+      const h = Number(p.heightCm), waist = series("waist").at(-1)?.v, bf = bodyFat(h);
+      if (h > 0 && waist) lines.push(`- Waist ÷ height now ${(waist / h).toFixed(2)}`);
+      if (bf) lines.push(`- Body fat used for the burn ≈ ${fmt(bf.v)}% (${bf.src === "tape" ? "US Navy tape method" : "smart scale"})`);
     }
     if (real.ready) lines.push("", `Real burn from weigh-ins: ≈ ${kc(real.total)} kcal a day (ate ${kc(real.eaten)} on average, weight trend ${real.perWeek <= 0 ? "−" : "+"}${fmt(Math.abs(real.perWeek))} kg a week)`);
     // Most-logged foods, by how many days they appear on.
