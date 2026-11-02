@@ -599,12 +599,12 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const eaten = logged.reduce((a, d) => a + kcalOf(entries(d)).sum, 0) / logged.length;
     return { ...out, ready: true, eaten, perWeek: slope * 7, total: Math.round((eaten - slope * 7700) / 10) * 10 };
   }
-  // The daily calorie target: the formula burn (resting + desk day + steps) minus 500, about 0.5 kg of fat a
-  // week. It deliberately ignores gym and sport, and the real burn is shown only as a check, so it stays conservative.
-  const DEFICIT = 500;
+  // The daily calorie target: a fixed 1,850 kcal. The formula burn (resting + desk day + steps, no gym or sport)
+  // is still worked out and shown beside it, so you can see the deficit; the real burn is only a check.
+  const CAL_TARGET = 1850;
   function calTarget() {
     const b = burn();
-    return b ? { avg: b.total, target: b.total - DEFICIT, b } : null;
+    return { avg: b ? b.total : null, target: CAL_TARGET, b };
   }
   const GRAMS_KEY = "protein-log:last-grams", CHART_KEY = "protein-log:chart";
   const lastGrams = (name, fallback = 200) => { try { return JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}")[name] || fallback; } catch { return fallback; } };
@@ -1109,9 +1109,9 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     // Calories against the average burn: today isn't counted until it's over.
     const done = days.filter(d => d < today && entries(d).length);
     const avgK = done.length ? done.reduce((s, d) => s + kcalOf(entries(d)).sum, 0) / done.length : 0;
-    const gap = ct ? ct.avg - avgK : 0;
+    const gap = ct.avg != null ? ct.avg - avgK : 0;
     $("avgKcal").textContent = !done.length ? ""
-      : `Avg ${kc(avgK)} kcal` + (ct ? ` · ${kc(Math.abs(gap))} ${gap >= 0 ? "under" : "over"} burn ≈ ${fmt(Math.abs(gap) * 7 / 7700)} kg fat a week` : "");
+      : `Avg ${kc(avgK)} kcal` + (ct.avg != null ? ` · ${kc(Math.abs(gap))} ${gap >= 0 ? "under" : "over"} burn ≈ ${fmt(Math.abs(gap) * 7 / 7700)} kg fat a week` : "");
   }
 
   function renderPlan() {
@@ -1290,7 +1290,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       ? `BMI now ${bmi(w)} at ${fmt(w)} kg${t > 0 ? ` · at ${fmt(t)} kg it would be ${bmi(t)}` : ""}.`
       : "Add your weight and height to see your BMI.";
     const b = burn(), ct = calTarget(), real = realBurn(), bf = bodyFat(h);
-    $("burnEq").textContent = ct ? `${kc(ct.avg)} − ${DEFICIT} = ${kc(ct.target)} kcal a day` : "Add age, weight and height.";
+    $("burnEq").textContent = ct.avg != null ? `Target ${kc(ct.target)} kcal a day · burn ≈ ${kc(ct.avg)}, so ${kc(ct.avg - ct.target)} under` : `Target ${kc(ct.target)} kcal a day. Add age, weight and height to see your burn.`;
     $("burnHow").textContent = [
       b && bf ? `Resting from lean mass ${fmt(b.w * (1 - bf.v / 100))} kg (body fat ${fmt(bf.v)}%, ${bf.src === "tape" ? "tape" : "smart scale"}).` : "",
       b ? `Resting ${kc(b.rest)} + desk day ${kc(b.daily)} + ${b.steps.toLocaleString("en-GB")} steps ${kc(b.walk)}. No gym counted.` : "",
@@ -1322,7 +1322,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       "",
       "Targets",
       tgt ? `- Protein: ${tgt} g a day (${fmt(p.targetKg)} kg target weight × ${Number(p.gPerKg).toFixed(1)} g/kg)` : "- Protein: not set",
-      ct ? `- Calories: ${kc(ct.target)} kcal a day (estimated burn ${kc(ct.avg)} − ${DEFICIT}; the burn counts resting + ${ct.b.steps.toLocaleString("en-GB")} steps only, no gym or sport)` : "- Calories: not set",
+      `- Calories: ${kc(ct.target)} kcal a day, fixed${ct.b ? ` (estimated burn ${kc(ct.avg)}; the burn counts resting + ${ct.b.steps.toLocaleString("en-GB")} steps only, no gym or sport)` : ""}`,
       waistTgt ? `- Waist: ${fmt(waistTgt)} cm (main goal)` : null,
       p.targetKg > 0 ? `- Weight: ${fmt(p.targetKg)} kg (a checkpoint, not the main goal)` : null,
       me.length ? `- Me: ${me.join(", ")}` : null,
