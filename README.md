@@ -26,7 +26,7 @@ Live at **https://alirghase.github.io/protein-log/**.
 - **Calorie target:** your burn minus 500 (about 0.5 kg of fat a week), the same every day. The bar
   turns orange past it. It's deliberately conservative: it assumes you only eat and walk.
 - **Burn estimate:** resting burn (Katch–McArdle from lean mass once the Body section has your waist
-  and neck, otherwise Mifflin–St Jeor from weight, height and age) × 1.2 for a desk day, plus walking
+  and neck, or failing that a smart-scale body-fat reading; otherwise Mifflin–St Jeor from weight, height and age) × 1.2 for a desk day, plus walking
   for your average steps beyond the ~5,000 a desk day already covers (default 10,000; about 0.5 kcal
   per kg per km). Gym and sport aren't counted.
 - **Real burn (a check only):** once there are 6+ weigh-ins over 14+ days in the last 28, with food
@@ -49,7 +49,8 @@ Live at **https://alirghase.github.io/protein-log/**.
   calories over the finished days, how far under or over your burn that is, and what that means in kg
   of fat a week.
 - **Body:** a quick weigh-in box (shows the 7-day average against the week before), the waist chart,
-  and a small trend line for each tape measurement. Weight is shown as a number, not a chart.
+  and a small trend line for each tape measurement, plus body fat from a smart scale if you have one.
+  Weight is shown as a number, not a chart.
 - **Check-in:** **Copy for Claude** copies the last 28 days as plain text (targets, each logged day's
   protein and calories, averages, body measurements and the most-logged foods) to paste into Claude or
   another AI for a summary. Food starts at your first logged day if that's later, so earlier days don't
