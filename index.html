@@ -368,6 +368,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       <div class="field"><label for="sTarget">Target weight (kg)</label><input class="input" id="sTarget" type="number" min="30" max="300" step="0.5" inputmode="decimal"></div>
       <div class="field"><label for="sAge">Age</label><input class="input" id="sAge" type="number" min="14" max="100" step="1" inputmode="numeric"></div>
       <div class="field"><label for="sSteps">Steps a day (average)</label><input class="input" id="sSteps" type="number" min="0" max="50000" step="500" inputmode="numeric"></div>
+      <div class="field"><label for="sKcal">Calorie target (kcal a day)</label><input class="input" id="sKcal" type="number" min="1000" max="5000" step="50" inputmode="numeric"></div>
     </div>
     <div class="field">
       <label>Protein per kg of target weight</label>
@@ -505,11 +506,11 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     ["Sat", "Chicken", "Sardines"],
     ["Sun", "Red meat", "Chicken"],
   ];
-  const DEFAULT_PROFILE = { weightKg: null, heightCm: null, targetKg: null, gPerKg: 1.8, waistTargetCm: null, age: null, stepsPerDay: 10000 };
+  const DEFAULT_PROFILE = { weightKg: null, heightCm: null, targetKg: null, gPerKg: 1.8, waistTargetCm: null, age: null, stepsPerDay: 10000, kcalTarget: null };
   const FACTORS = [1.6, 1.8, 2.0, 2.2];
   // Body section measures. dir is which way counts as progress: -1 down, 1 up, 0 just track it.
   const MEASURES = [
-    { id: "waist", name: "Waist", unit: "cm", dir: -1, how: "Waist: around your belly button, standing relaxed, after a normal breath out. Don’t suck in." },
+    { id: "waist", name: "Waist", unit: "cm", dir: -1, how: "Waist: around the widest part of your stomach, same spot every time, standing relaxed, after a normal breath out. Don’t suck in." },
     { id: "weight", name: "Weight", unit: "kg", dir: -1, how: "Weight: after the toilet, before food or drink." },
     { id: "neck", name: "Neck", unit: "cm", dir: 0, how: "Neck: just below the Adam’s apple, tape level. With waist and height it gives the body-fat estimate." },
     { id: "chest", name: "Chest", unit: "cm", dir: 0, how: "Chest: across the nipples, arms by your sides, after a breath out." },
@@ -599,12 +600,12 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     const eaten = logged.reduce((a, d) => a + kcalOf(entries(d)).sum, 0) / logged.length;
     return { ...out, ready: true, eaten, perWeek: slope * 7, total: Math.round((eaten - slope * 7700) / 10) * 10 };
   }
-  // The daily calorie target: a fixed 1,850 kcal. The formula burn (resting + desk day + steps, no gym or sport)
-  // is still worked out and shown beside it, so you can see the deficit; the real burn is only a check.
-  const CAL_TARGET = 1850;
+  // The daily calorie target: whatever you set in the settings, 2,200 kcal until you do. The formula burn (resting +
+  // desk day + steps, no gym or sport) is still worked out and shown beside it, so you can see the deficit; the real burn is only a check.
+  const CAL_TARGET = 2200;
   function calTarget() {
     const b = burn();
-    return { avg: b ? b.total : null, target: CAL_TARGET, b };
+    return { avg: b ? b.total : null, target: state.profile.kcalTarget ?? CAL_TARGET, b };
   }
   const GRAMS_KEY = "protein-log:last-grams", CHART_KEY = "protein-log:chart";
   const lastGrams = (name, fallback = 200) => { try { return JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}")[name] || fallback; } catch { return fallback; } };
@@ -645,19 +646,19 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   const profileRow = () => ({
     user_id: user.id, weight_kg: state.profile.weightKg, height_cm: state.profile.heightCm, target_kg: state.profile.targetKg,
     g_per_kg: state.profile.gPerKg, waist_target_cm: state.profile.waistTargetCm, age: state.profile.age,
-    steps_per_day: state.profile.stepsPerDay ?? DEFAULT_PROFILE.stepsPerDay, custom_foods: state.custom, saved_at: Date.now(),
+    steps_per_day: state.profile.stepsPerDay ?? DEFAULT_PROFILE.stepsPerDay, kcal_target: state.profile.kcalTarget, custom_foods: state.custom, saved_at: Date.now(),
   });
   const cloud = {
     async load() {
       const [p, d, b] = await Promise.all([
-        sb.from("protein_profile").select("weight_kg,height_cm,target_kg,g_per_kg,waist_target_cm,age,steps_per_day,custom_foods").maybeSingle(),
+        sb.from("protein_profile").select("weight_kg,height_cm,target_kg,g_per_kg,waist_target_cm,age,steps_per_day,kcal_target,custom_foods").maybeSingle(),
         sb.from("protein_days").select("date,entries").order("date", { ascending: false }).limit(1000),
         sb.from("body_measurements").select("date,measures").order("date", { ascending: false }).limit(1000),
       ]);
       const prof = must(p), days = must(d), body = must(b);
       return {
         profile: prof ? { weightKg: num(prof.weight_kg), heightCm: num(prof.height_cm), targetKg: num(prof.target_kg), gPerKg: num(prof.g_per_kg) ?? 1.8, waistTargetCm: num(prof.waist_target_cm),
-          age: num(prof.age), stepsPerDay: num(prof.steps_per_day) ?? DEFAULT_PROFILE.stepsPerDay } : null,
+          age: num(prof.age), stepsPerDay: num(prof.steps_per_day) ?? DEFAULT_PROFILE.stepsPerDay, kcalTarget: num(prof.kcal_target) } : null,
         body: Object.fromEntries(body.map(r => [r.date, r.measures && typeof r.measures === "object" ? r.measures : {}])),
         custom: prof && Array.isArray(prof.custom_foods) ? prof.custom_foods : [],
         days: Object.fromEntries(days.map(r => [r.date, Array.isArray(r.entries) ? r.entries : []])),
@@ -788,7 +789,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
           if (body.length) must(await sb.from("body_measurements").upsert(body.map(([date, m]) => ({ user_id: u.id, date, measures: m, saved_at: Date.now() })), { onConflict: "user_id,date", ignoreDuplicates: true }));
           if (mine.profile || (mine.custom || []).length) {
             const p = mine.profile || DEFAULT_PROFILE;
-            must(await sb.from("protein_profile").upsert({ user_id: u.id, weight_kg: p.weightKg, height_cm: p.heightCm, target_kg: p.targetKg, g_per_kg: p.gPerKg ?? 1.8, waist_target_cm: p.waistTargetCm ?? null, age: p.age ?? null, steps_per_day: p.stepsPerDay ?? DEFAULT_PROFILE.stepsPerDay, custom_foods: mine.custom || [], saved_at: Date.now() }, { onConflict: "user_id", ignoreDuplicates: true }));
+            must(await sb.from("protein_profile").upsert({ user_id: u.id, weight_kg: p.weightKg, height_cm: p.heightCm, target_kg: p.targetKg, g_per_kg: p.gPerKg ?? 1.8, waist_target_cm: p.waistTargetCm ?? null, age: p.age ?? null, steps_per_day: p.stepsPerDay ?? DEFAULT_PROFILE.stepsPerDay, kcal_target: p.kcalTarget ?? null, custom_foods: mine.custom || [], saved_at: Date.now() }, { onConflict: "user_id", ignoreDuplicates: true }));
           }
           localStorage.setItem(`${KEY}:moved-online`, JSON.stringify(mine));
           localStorage.removeItem(KEY);
@@ -1271,8 +1272,8 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
 
   function renderSettings() {
     const p = state.profile;
-    for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"], ["sAge", "age"], ["sSteps", "stepsPerDay"]]) {
-      const inp = $(id); if (document.activeElement !== inp) inp.value = p[key] ?? "";
+    for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"], ["sAge", "age"], ["sSteps", "stepsPerDay"], ["sKcal", "kcalTarget"]]) {
+      const inp = $(id); if (document.activeElement !== inp) inp.value = key === "kcalTarget" ? calTarget().target : p[key] ?? "";
     }
     const seg = $("factorSeg"); seg.replaceChildren();
     for (const f of FACTORS) seg.append(el("button", { type: "button", "aria-pressed": String(Number(p.gPerKg) === f), onclick: () => setProfile({ gPerKg: f }) }, `${f.toFixed(1)} g/kg`));
@@ -1322,7 +1323,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       "",
       "Targets",
       tgt ? `- Protein: ${tgt} g a day (${fmt(p.targetKg)} kg target weight × ${Number(p.gPerKg).toFixed(1)} g/kg)` : "- Protein: not set",
-      `- Calories: ${kc(ct.target)} kcal a day, fixed${ct.b ? ` (estimated burn ${kc(ct.avg)}; the burn counts resting + ${ct.b.steps.toLocaleString("en-GB")} steps only, no gym or sport)` : ""}`,
+      `- Calories: ${kc(ct.target)} kcal a day, chosen${ct.b ? ` (estimated burn ${kc(ct.avg)}; the burn counts resting + ${ct.b.steps.toLocaleString("en-GB")} steps only, no gym or sport)` : ""}`,
       waistTgt ? `- Waist: ${fmt(waistTgt)} cm (main goal)` : null,
       p.targetKg > 0 ? `- Weight: ${fmt(p.targetKg)} kg (a checkpoint, not the main goal)` : null,
       me.length ? `- Me: ${me.join(", ")}` : null,
@@ -1459,12 +1460,12 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
     render(); fillBodyForm();
     msg.className = "msg"; msg.textContent = d === todayStr() ? "Saved." : `Saved for ${shortDate(d)}.`;
   });
-  for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"], ["sWaistTarget", "waistTargetCm"], ["sAge", "age"], ["sSteps", "stepsPerDay"]]) {
+  for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"], ["sWaistTarget", "waistTargetCm"], ["sAge", "age"], ["sSteps", "stepsPerDay"], ["sKcal", "kcalTarget"]]) {
     $(id).addEventListener("change", e => {
       let v = e.target.value === "" ? null : Number(e.target.value);
       if (key === "stepsPerDay" && v === null) v = DEFAULT_PROFILE.stepsPerDay;
       if (v !== null && !(v >= Number(e.target.min) && v <= Number(e.target.max))) { render(); return; }
-      if (key === "age" || key === "stepsPerDay") v = v === null ? null : Math.round(v);
+      if (key === "age" || key === "stepsPerDay" || key === "kcalTarget") v = v === null ? null : Math.round(v);
       setProfile({ [key]: v });
     });
   }
