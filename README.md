@@ -23,8 +23,8 @@ Live at **https://alirghase.github.io/protein-log/**.
 - **Calories:** every built-in food shows its calories next to its protein (per serving, or per 100 g
   for foods logged by weight). The day's total sits under the protein total, against an estimate of
   what you burn, with how far under or over you are. Each meal and each logged food shows its calories.
-- **Calorie target:** a fixed 1,850 kcal a day. The bar turns orange past it. The settings show it next
-  to your estimated burn, so you can see the deficit.
+- **Calorie target:** you choose it in the settings (2,200 kcal a day until you do). The bar turns orange
+  past it. The settings show it next to your estimated burn, so you can see the deficit.
 - **Burn estimate:** resting burn (Katch–McArdle from lean mass once the Body section has your waist
   and neck, or failing that a smart-scale body-fat reading; otherwise Mifflin–St Jeor from weight, height and age) × 1.2 for a desk day, plus walking
   for your average steps beyond the ~5,000 a desk day already covers (default 10,000; about 0.5 kcal
