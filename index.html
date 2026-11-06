@@ -824,6 +824,11 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   // The usual day's staples. Rice is left to pick, because the pouch changes.
   const STAPLES = [["breakfast", "oats"], ["breakfast", "honey"], ["breakfast", "scoop"], ["snack", "yog"], ["snack", "banana"]];
   const logStaples = () => addEntries(STAPLES.map(([meal, id]) => ({ ...PRESET_BY_ID.get(id), meal })), "Added the staples: porridge, honey, scoop, yoghurt and banana");
+  // My day: the fixed routine, every food and amount, ≈2,130 kcal and ≈200 g protein. Grams are for foods logged by weight.
+  const MY_DAY = [["breakfast", "oats"], ["breakfast", "honey"], ["breakfast", "scoop"],
+    ["lunch", "af-chicken", 205], ["lunch", "a-rice-veg"], ["snack", "yog"], ["snack", "banana"],
+    ["dinner", "a-sbasa", 105], ["dinner", "a-rice-long"]];
+  const logMyDay = () => addEntries(MY_DAY.map(([meal, id, grams]) => ({ ...PRESET_BY_ID.get(id), meal, ...(grams ? { grams } : {}) })), "Added my day");
   function copyYesterday() {
     const prev = entries(shiftDate(state.date, -1));
     addEntries(prev.map(({ id, t, ...e }) => e), `Copied ${prev.length} food${prev.length === 1 ? "" : "s"} from the day before`);
@@ -999,6 +1004,7 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       meals.append(el("p", { class: "hint", style: "margin:0 4px" }, "Nothing logged yet."));
       const prevN = entries(shiftDate(state.date, -1)).length;
       meals.append(el("div", { class: "quick" },
+        el("button", { type: "button", onclick: logMyDay }, "Log my day"),
         el("button", { class: "secondary", type: "button", onclick: logStaples }, "Log staples"),
         prevN ? el("button", { class: "secondary", type: "button", onclick: copyYesterday }, `Copy the day before (${prevN})`) : null));
     }
