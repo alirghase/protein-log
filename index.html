@@ -419,6 +419,12 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
       ["y-aldi-honey", "Brooklea Honey Authentic Greek", "150 g pot", 8.07, 87.4, ["pot", 150]],
       ["y-aldi-10", "Lyttos Greek 10%", "500 g tub", 6.4, 132, ["bowl", 300, [1]]],
     ]},
+    // £1 or less a tub (Morrisons 1 kg: about 77p a bowl). Per 100 g and prices from the shop pages (7 Nov 2026).
+    { group: "Cheap yoghurt", per100: true, items: [
+      ["y-savers", "Morrisons Savers Low Fat Natural", "500 g tub, 55p", 4.3, 60, ["tub", 500, [1]]],
+      ["y-aldi-ffgs", "Brooklea Fat Free Greek Style (Aldi)", "500 g tub, 95p", 5.93, 62, ["tub", 500, [1]]],
+      ["y-mor-ffgs", "Morrisons Fat Free Greek Style", "1 kg tub, £1.70", 7, 62, ["bowl", 450, [1]]],
+    ]},
     { group: "Morrisons Greek yoghurt", per100: true, items: [
       ["y-fage-0", "Fage Total 0%", "tub", 10.3, 54, ["bowl", 300, [1]]],
       ["y-fage-5", "Fage Total 5%", "tub", 9, 93, ["bowl", 300, [1]]],
@@ -837,9 +843,9 @@ details[open].panel > summary .chev { transform: rotate(90deg); }
   // The usual day's staples. Rice is left to pick, because the pouch changes.
   const STAPLES = [["breakfast", "oats"], ["breakfast", "honey"], ["breakfast", "scoop"], ["snack", "yog"], ["snack", "banana"]];
   const logStaples = () => addEntries(STAPLES.map(([meal, id]) => ({ ...PRESET_BY_ID.get(id), meal })), "Added the staples: porridge, honey, scoop, yoghurt and banana");
-  // My day: the fixed routine, every food and amount, ≈2,130 kcal and ≈200 g protein. Grams are for foods logged by weight.
+  // My day: the fixed routine, every food and amount, ≈2,150 kcal and ≈175 g protein. Grams are for foods logged by weight.
   const MY_DAY = [["breakfast", "oats"], ["breakfast", "honey"], ["breakfast", "scoop"],
-    ["lunch", "af-chicken", 205], ["lunch", "a-rice-veg"], ["snack", "yog"], ["snack", "banana"],
+    ["lunch", "af-chicken", 205], ["lunch", "a-rice-veg"], ["snack", "y-savers", 500], ["snack", "banana"],
     ["dinner", "a-sbasa", 105], ["dinner", "a-rice-long"]];
   const logMyDay = () => addEntries(MY_DAY.map(([meal, id, grams]) => ({ ...PRESET_BY_ID.get(id), meal, ...(grams ? { grams } : {}) })), "Added my day");
   function copyYesterday() {
