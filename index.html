@@ -1,0 +1,1510 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Protein Log</title>
+<meta name="description" content="Log protein and calories by meal through the day, against a protein target and an estimate of what you burn, and track your waist and other measurements.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Protein Log">
+<meta name="theme-color" content="#eef3f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1613" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column like a phone app. Today's total on top, then meals, the food picker, history, the example week, body measurements, target and account. */
+:root {
+  --bg: #eef3f0;
+  --surface: #ffffff;
+  --sunk: #e3ebe6;
+  --ink: #12201a;
+  --muted: #5b6d64;
+  --line: #d3ded8;
+  --accent: #0d7a5f;
+  --accent-ink: #ffffff;
+  --accent-soft: #d5ece4;
+  --warn: #b5651d;
+  --m-breakfast: #e0a526;
+  --m-lunch: #2f8f6a;
+  --m-dinner: #2e5e9e;
+  --m-snack: #b0568a;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 14px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1613; --surface: #16211c; --sunk: #1d2a24; --ink: #e6efea; --muted: #94a69d;
+    --line: #2a3a33; --accent: #3fc79c; --accent-ink: #06231a; --accent-soft: #173a2f; --warn: #e3a25e;
+    --m-breakfast: #e8b84a; --m-lunch: #4fb98f; --m-dinner: #6b98d6; --m-snack: #d27fae;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(20px + env(safe-area-inset-top, 0px)) calc(48px + env(safe-area-inset-bottom, 0px));
+}
+[hidden] { display: none !important; }
+.app { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.label { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+h1 { margin: 0; font-family: var(--display); font-stretch: 125%; font-weight: 800; font-size: 20px; letter-spacing: -.01em; }
+h2 { font-family: var(--display); font-stretch: 112%; font-size: 15px; font-weight: 750; margin: 0; text-wrap: balance; }
+
+/* Top bar */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.datenav { display: flex; align-items: center; gap: 4px; }
+.iconbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; min-width: 36px; height: 36px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; }
+.iconbtn:hover { border-color: var(--accent); }
+.iconbtn:disabled { opacity: .4; cursor: default; }
+.datelabel { font-weight: 650; min-width: 112px; text-align: center; font-size: 14px; }
+
+/* Summary */
+.summary { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.big { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.big .val { font-family: var(--display); font-stretch: 118%; font-size: 52px; font-weight: 800; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.big .of { color: var(--muted); font-size: 16px; }
+.pill { font-size: 12px; font-weight: 650; padding: 4px 10px; border-radius: 999px; background: var(--sunk); color: var(--muted); margin-left: auto; white-space: nowrap; border: 0; }
+.pill.done { background: var(--accent); color: var(--accent-ink); }
+.pill.close { background: var(--accent-soft); color: var(--accent); }
+.pill.over { background: color-mix(in srgb, var(--warn) 22%, var(--surface)); color: var(--warn); }
+.bar { position: relative; height: 16px; background: var(--sunk); border-radius: 8px; overflow: hidden; display: flex; }
+.bar span { height: 100%; transition: width .25s ease; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; }
+.cal { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; }
+.cal .big .val { font-size: 30px; }
+.cal .bar { height: 10px; border-radius: 5px; overflow: visible; position: relative; }
+.cal .bar span:first-child { border-radius: 5px 0 0 5px; }
+.cal .bar .mark { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px dashed var(--ink); opacity: .45; }
+.group-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.quick { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 4px; }
+.weighin { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.weighin input { width: 96px; }
+
+/* Meals */
+.meals { display: flex; flex-direction: column; gap: 10px; }
+.meal { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.meal-head { display: flex; align-items: center; gap: 10px; padding: 11px 14px; }
+.meal-head .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.meal-head .sum { margin-left: auto; font-weight: 600; }
+.meal-head .add { border: 0; background: transparent; color: var(--accent); font-weight: 650; font-size: 13px; padding: 4px 6px; }
+.entries { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.entries:empty { display: none; }
+.entry { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+.entry:last-child { border-bottom: 0; }
+.entry .name { min-width: 0; }
+.entry .name b { font-weight: 600; display: block; overflow-wrap: anywhere; }
+.entry .name small { color: var(--muted); font-size: 12.5px; }
+.qty { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.qty button { border: 0; background: transparent; width: 30px; height: 30px; font-size: 16px; }
+.qty button:hover { background: var(--sunk); }
+.qty span { min-width: 34px; text-align: center; font-size: 13px; }
+.entry .g { min-width: 52px; text-align: right; font-weight: 600; }
+.entry .del { border: 0; background: transparent; color: var(--muted); width: 26px; height: 26px; border-radius: 7px; font-size: 16px; }
+.entry .del:hover { background: var(--sunk); color: var(--ink); }
+.entry-row2 { display: flex; align-items: center; gap: 6px; }
+
+/* Panels */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--sunk); border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; padding: 6px 11px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.search { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; }
+.groups { display: flex; flex-direction: column; gap: 14px; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.tile { position: relative; text-align: left; border: 1px solid var(--line); background: var(--bg); border-radius: 11px; padding: 10px 11px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tile:hover { border-color: var(--accent); }
+.tile:active { transform: scale(.98); }
+.tile b { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; padding-right: 18px; }
+.tile small { color: var(--muted); font-size: 12px; }
+.tile .p { font-family: var(--mono); font-weight: 600; color: var(--accent); font-size: 13px; margin-top: 2px; }
+.tile .k { color: var(--muted); font-weight: 500; }
+.tile .rm { position: absolute; top: 6px; right: 6px; border: 0; background: transparent; color: var(--muted); width: 22px; height: 22px; border-radius: 6px; font-size: 14px; line-height: 1; }
+.tile .rm:hover { background: var(--sunk); color: var(--ink); }
+.custom { display: grid; grid-template-columns: 1fr 96px 96px; gap: 8px; }
+.input { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.custom .row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.check { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; color: var(--muted); }
+.primary { border: 0; background: var(--accent); color: var(--accent-ink); font-weight: 700; border-radius: 10px; padding: 10px 16px; }
+.secondary { border: 1px solid var(--line); background: var(--surface); font-weight: 650; border-radius: 10px; padding: 10px 16px; }
+.primary:disabled, .secondary:disabled { opacity: .45; cursor: not-allowed; }
+.link { border: 0; background: transparent; color: var(--accent); font-weight: 650; padding: 0; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+
+/* Weigh panel: grams for foods logged by weight */
+.weigh { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.weigh-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.weigh-head b { font-size: 15px; }
+.weigh-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.grams { display: inline-flex; align-items: center; gap: 6px; }
+.grams input { width: 92px; text-align: right; }
+.weigh .out { font-family: var(--mono); font-weight: 600; color: var(--accent); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chips button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600; font-family: var(--mono); }
+.chips button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.gap { align-items: center; }
+.gap .note { margin-right: 2px; }
+.qty input { width: 52px; border: 0; background: transparent; text-align: center; font-family: var(--mono); font-size: 13px; padding: 0; -moz-appearance: textfield; }
+.qty input::-webkit-inner-spin-button, .qty input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* History */
+.hist { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 150px; padding-top: 6px; }
+.hcol { display: flex; flex-direction: column; align-items: center; gap: 5px; height: 100%; justify-content: flex-end; border: 0; background: transparent; padding: 0; border-radius: 8px; min-width: 0; }
+.hcol .stack { width: 100%; max-width: 38px; background: var(--sunk); border-radius: 6px; position: relative; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.hcol .fill { width: 100%; background: var(--accent); border-radius: 6px 6px 0 0; }
+.hcol .fill.under { background: var(--warn); opacity: .85; }
+.hcol .tline { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--ink); opacity: .35; }
+.hcol small { font-size: 11px; color: var(--muted); }
+.hcol .hv { font-size: 11px; font-family: var(--mono); }
+.hcol[aria-current="true"] small { color: var(--ink); font-weight: 700; }
+
+/* Example week: two proteins a day, the selected day highlighted */
+.plan { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.plan li { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; }
+.plan li > span { font-size: 13px; font-weight: 650; color: var(--muted); }
+.plan li[aria-current="date"] { background: var(--accent-soft); }
+.plan li[aria-current="date"] > span { color: var(--ink); }
+.plan .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.plan .tags b { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 600; }
+
+/* Body */
+.body-big { display: flex; align-items: baseline; gap: 8px 10px; flex-wrap: wrap; }
+.body-big .val { font-family: var(--display); font-stretch: 118%; font-size: 40px; font-weight: 800; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.body-big .of { color: var(--muted); font-size: 14px; }
+.stats { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; }
+.stats b { font-family: var(--mono); font-weight: 600; }
+.spark svg { display: block; width: 100%; height: auto; overflow: visible; }
+.measures { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.measure { border: 1px solid var(--line); background: var(--bg); border-radius: 11px; padding: 9px 11px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.measure .mv { font-family: var(--mono); font-weight: 600; font-size: 15px; }
+.measure small { color: var(--muted); font-size: 12px; }
+.measure small.good { color: var(--accent); font-weight: 600; }
+.measure small.bad { color: var(--warn); font-weight: 600; }
+.bodyform { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
+.bodyform .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.howto summary { cursor: pointer; color: var(--accent); font-weight: 650; font-size: 13px; }
+.howto ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+.bhist { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 11px; }
+.bhist li { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.bhist li:last-child { border-bottom: 0; }
+.bhist .d { font-weight: 650; margin-right: 6px; }
+.bhist .vals { color: var(--muted); font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
+.bhist button { border: 0; background: transparent; color: var(--muted); font-size: 12.5px; padding: 4px 6px; border-radius: 7px; }
+.bhist button.armed { color: var(--warn); font-weight: 650; }
+
+/* Target */
+details.panel > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+details.panel > summary::-webkit-details-marker { display: none; }
+details.panel > summary .chev { transition: transform .2s; color: var(--muted); }
+details[open].panel > summary .chev { transform: rotate(90deg); }
+.fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field label { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.calc { background: var(--bg); border: 1px solid var(--line); border-radius: 11px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.calc .eq { font-family: var(--mono); font-size: 14px; }
+.note { font-size: 12.5px; color: var(--muted); }
+
+/* Account */
+.auth { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.auth .row { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+.msg { font-size: 13px; color: var(--muted); margin: 0; min-height: 1em; }
+.msg.err { color: var(--warn); }
+.banner { background: var(--accent-soft); color: var(--ink); border-radius: 10px; padding: 9px 12px; font-size: 13px; }
+.banner.err { background: color-mix(in srgb, var(--warn) 22%, var(--surface)); }
+
+/* Toast */
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 12px 10px 16px; border-radius: 12px; display: flex; align-items: center; gap: 12px; font-size: 14px; max-width: calc(100% - 32px); box-shadow: 0 6px 24px rgba(0,0,0,.25); z-index: 20; }
+.toast button { border: 0; background: transparent; color: var(--accent-soft); font-weight: 700; padding: 4px 6px; }
+@media (max-width: 440px) {
+  .fields { grid-template-columns: 1fr 1fr; }
+  .big .val { font-size: 44px; }
+  .custom { grid-template-columns: 1fr 80px 80px; }
+  .auth { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>Protein Log</h1>
+    <nav class="datenav" aria-label="Choose day">
+      <button class="iconbtn" id="prevDay" aria-label="Previous day">‹</button>
+      <button class="iconbtn datelabel" id="dateLabel" title="Jump to today">Today</button>
+      <button class="iconbtn" id="nextDay" aria-label="Next day">›</button>
+    </nav>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <section class="summary" aria-label="Day total">
+    <div class="big">
+      <span class="val" id="total">0</span>
+      <span class="of">of <span class="num" id="target">–</span> g protein</span>
+      <button class="pill" id="status" type="button">Set your target</button>
+    </div>
+    <div class="bar" id="bar" role="img" aria-label="Protein progress"></div>
+    <div class="legend" id="legend"></div>
+    <div class="chips gap" id="gap" hidden></div>
+    <div class="cal">
+      <div class="big">
+        <span class="val" id="kcal">0</span>
+        <span class="of">of <span class="num" id="kcalTarget">–</span> kcal target</span>
+        <button class="pill" id="kcalStatus" type="button">Estimate your burn</button>
+      </div>
+      <div class="bar" id="kbar" role="img" aria-label="Calories against target"></div>
+      <span class="note" id="kcalNote"></span>
+    </div>
+  </section>
+
+  <section class="meals" id="meals" aria-label="Meals"></section>
+
+  <section class="panel" id="picker" aria-label="Add food">
+    <div class="panel-head">
+      <h2>Add food</h2>
+      <div class="seg" id="mealSeg" role="group" aria-label="Meal"></div>
+    </div>
+    <input class="search" id="search" type="search" placeholder="Search foods (e.g. chicken, tuna)" autocomplete="off">
+    <div class="weigh" id="weigh" hidden></div>
+    <div class="groups" id="groups"></div>
+    <div class="group">
+      <span class="label">Something else</span>
+      <form class="custom" id="customForm">
+        <input class="input" type="text" id="cName" placeholder="Food, e.g. Greek yoghurt 200 g" required>
+        <input class="input" type="number" id="cProtein" placeholder="Protein g" min="0" max="300" step="0.5" inputmode="decimal" required>
+        <input class="input" type="number" id="cKcal" placeholder="kcal" min="0" max="5000" step="1" inputmode="numeric" aria-label="Calories (optional)">
+        <div class="row">
+          <label class="check"><input type="checkbox" id="cSave" checked> Save to my foods</label>
+          <button class="primary" type="submit">Add</button>
+        </div>
+      </form>
+      <p class="hint">Meat and fish by cooked weight.</p>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Last 7 days">
+    <div class="panel-head">
+      <h2>Last 7 days</h2>
+      <div class="seg" id="chartSeg" role="group" aria-label="Chart shows"></div>
+    </div>
+    <span class="note" id="avg"></span>
+    <div class="hist" id="hist"></div>
+    <span class="note" id="avgKcal"></span>
+  </section>
+
+  <section class="panel" aria-label="Example week">
+    <div class="panel-head">
+      <h2>Example week</h2>
+      <span class="note">Two proteins a day</span>
+    </div>
+    <ul class="plan" id="plan"></ul>
+  </section>
+
+  <section class="panel" id="body" aria-label="Body">
+    <div class="panel-head">
+      <h2>Body</h2>
+      <span class="note" id="bodyLast"></span>
+    </div>
+    <form class="weighin" id="weighForm" novalidate>
+      <label class="label" for="wKg">Weigh-in today</label>
+      <input class="input" id="wKg" type="number" min="30" max="300" step="0.1" inputmode="decimal" placeholder="kg">
+      <button class="primary" type="submit">Save</button>
+      <span class="note" id="wNote"></span>
+    </form>
+    <div id="bodyTop" style="display:flex;flex-direction:column;gap:12px"></div>
+    <ul class="measures" id="measures"></ul>
+    <form class="bodyform" id="bodyForm" novalidate>
+      <div class="row">
+        <span class="label">Measure</span>
+        <input class="input" type="date" id="bDate" style="width:auto" aria-label="Date measured">
+      </div>
+      <p class="hint" id="bExisting" hidden>Already measured on this date. Saving replaces it.</p>
+      <div class="fields" id="bFields"></div>
+      <div class="row">
+        <button class="primary" type="submit">Save measurements</button>
+        <span class="msg" id="bMsg" role="status"></span>
+      </div>
+      <details class="howto"><summary>How to measure</summary><ul id="howto"></ul></details>
+    </form>
+    <div class="field">
+      <label for="sWaistTarget">Waist target (cm)</label>
+      <input class="input" id="sWaistTarget" type="number" min="40" max="200" step="0.5" inputmode="decimal" style="max-width:140px">
+      <span class="note" id="waistAdvice"></span>
+    </div>
+    <div id="bodyHist"></div>
+  </section>
+
+  <section class="panel" aria-label="Check-in">
+    <div class="panel-head">
+      <h2>Check-in</h2>
+      <button class="primary" id="copyAI" type="button">Copy for Claude</button>
+    </div>
+    <span class="note" id="copyNote">Last 28 days as text, to paste into Claude.</span>
+    <textarea class="input" id="copyBox" rows="10" readonly hidden aria-label="Check-in text"></textarea>
+  </section>
+
+  <details class="panel" id="settings">
+    <summary><h2>Your target and burn</h2><span class="chev">›</span></summary>
+    <div class="fields">
+      <div class="field"><label for="sWeight">Weight now (kg)</label><input class="input" id="sWeight" type="number" min="30" max="300" step="0.1" inputmode="decimal"></div>
+      <div class="field"><label for="sHeight">Height (cm)</label><input class="input" id="sHeight" type="number" min="100" max="250" step="1" inputmode="numeric"></div>
+      <div class="field"><label for="sTarget">Target weight (kg)</label><input class="input" id="sTarget" type="number" min="30" max="300" step="0.5" inputmode="decimal"></div>
+      <div class="field"><label for="sAge">Age</label><input class="input" id="sAge" type="number" min="14" max="100" step="1" inputmode="numeric"></div>
+      <div class="field"><label for="sSteps">Steps a day (average)</label><input class="input" id="sSteps" type="number" min="0" max="50000" step="500" inputmode="numeric"></div>
+      <div class="field"><label for="sKcal">Calorie target (kcal a day)</label><input class="input" id="sKcal" type="number" min="1000" max="5000" step="50" inputmode="numeric"></div>
+    </div>
+    <div class="field">
+      <label>Protein per kg of target weight</label>
+      <div class="seg" id="factorSeg" role="group" aria-label="Grams per kilogram"></div>
+    </div>
+    <div class="calc">
+      <span class="eq" id="calcEq"></span>
+      <span class="note" id="calcRange"></span>
+      <span class="note" id="calcBmi"></span>
+    </div>
+    <div class="calc">
+      <span class="eq" id="burnEq"></span>
+      <span class="note" id="burnHow"></span>
+    </div>
+  </details>
+
+  <section class="panel" aria-label="Account">
+    <h2>Account</h2>
+    <div id="account"></div>
+  </section>
+</div>
+
+<div class="toast" id="toast" hidden role="status"><span id="toastMsg"></span><button id="toastUndo" type="button">Undo</button></div>
+
+<script>
+(() => {
+  const MEALS = [
+    { id: "breakfast", name: "Breakfast", color: "var(--m-breakfast)" },
+    { id: "lunch", name: "Lunch", color: "var(--m-lunch)" },
+    { id: "dinner", name: "Dinner", color: "var(--m-dinner)" },
+    { id: "snack", name: "Snacks", color: "var(--m-snack)" },
+  ];
+  // Each food: id, name, serving, protein, kcal. Foods logged by weight give both per 100 g (cooked, unless the group says raw).
+  // Calories are typical label values for the kind of food, not read off each pack.
+  const PRESETS = [
+    { group: "Staples", items: [
+      ["oats", "Porridge oats", "80 g, in water", 9, 300],
+      ["honey", "Honey", "1 tsp", 0, 20],
+      ["scoop", "Protein scoop", "1 scoop", 45, 225],
+      ["yog", "Protein yoghurt", "1 pot", 50, 285],
+      ["banana", "Banana", "1 medium", 1, 105],
+      ["apple", "Apple", "1 medium", 0.5, 80],
+    ]},
+    // Real Greek yoghurt, weighed. Per 100 g from each shop's product page (6 Nov 2026); a bowl is 300 g.
+    // Left out on purpose: "Greek style" tubs, which have about 3 g protein per 100 g.
+    { group: "Aldi Greek yoghurt", per100: true, items: [
+      ["y-aldi-0", "Brooklea Authentic Greek 0%", "1 kg tub", 9.83, 52.8, ["bowl", 300, [1]]],
+      ["y-aldi-honey", "Brooklea Honey Authentic Greek", "150 g pot", 8.07, 87.4, ["pot", 150]],
+      ["y-aldi-10", "Lyttos Greek 10%", "500 g tub", 6.4, 132, ["bowl", 300, [1]]],
+    ]},
+    // £1 or less a tub (Morrisons 1 kg: about 77p a bowl). Per 100 g and prices from the shop pages (7 Nov 2026).
+    { group: "Cheap yoghurt", per100: true, items: [
+      ["y-savers", "Morrisons Savers Low Fat Natural", "500 g tub, 55p", 4.3, 60, ["tub", 500, [1]]],
+      ["y-aldi-ffgs", "Brooklea Fat Free Greek Style (Aldi)", "500 g tub, 95p", 5.93, 62, ["tub", 500, [1]]],
+      ["y-mor-ffgs", "Morrisons Fat Free Greek Style", "1 kg tub, £1.70", 7, 62, ["bowl", 450, [1]]],
+    ]},
+    { group: "Morrisons Greek yoghurt", per100: true, items: [
+      ["y-fage-0", "Fage Total 0%", "tub", 10.3, 54, ["bowl", 300, [1]]],
+      ["y-fage-5", "Fage Total 5%", "tub", 9, 93, ["bowl", 300, [1]]],
+      ["y-mor-0", "Morrisons The Best Greek 0%", "tub", 9.8, 66, ["bowl", 300, [1]]],
+      ["y-mor-10", "Morrisons The Best Greek 10%", "500 g tub", 6, 131, ["bowl", 300, [1]]],
+    ]},
+    // Per pouch from the label's per-100 g figure; pilau, lime & coriander and coconut are estimates.
+    { group: "Aldi rice pouches", items: [
+      ["a-rice-long", "Long grain rice", "250 g pouch", 6.8, 375],
+      ["a-rice-basmati", "Basmati rice", "250 g pouch", 6.5, 380],
+      ["a-rice-whole", "Wholegrain rice", "250 g pouch", 11.1, 420],
+      ["a-rice-pilau", "Pilau rice", "250 g pouch", 6.5, 400],
+      ["a-rice-mex", "Mexican style rice", "250 g pouch", 6.1, 385],
+      ["a-rice-veg", "Vegetable rice", "250 g pouch", 7.5, 360],
+      ["a-rice-lime", "Lime & coriander rice", "250 g pouch", 6.5, 390],
+      ["a-rice-coconut", "Coconut rice", "250 g pouch", 6, 450],
+      ["a-rice-bbq", "Special BBQ rice", "250 g pouch", 7.3, 390],
+    ]},
+    { group: "Fish", items: [
+      ["sardines", "Sardines", "1 can (~120 g)", 21, 200],
+      ["tuna", "Tuna, drained", "1 can (~110 g)", 25, 120],
+      ["ee-battered", "Battered cod fillet (Everyday Essentials)", "1 fillet", 11, 200],
+    ]},
+    // Logged by weight: air-fried, weighed after cooking, so the number is protein per 100 g cooked.
+    // Foods in the Aldi range below aren't repeated here.
+    { group: "Air-fried (by weight, cooked)", per100: true, items: [
+      ["af-chicken", "Chicken breast fillet", "cooked", 31, 165],
+      // Aldi Roosters, from the pack label (oven cooked): a 305 g pack is 2 servings of 144 g cooked.
+      ["a-tenders-hot", "Roosters Hot & Spicy chicken tenders", "cooked", 23.3, 247, ["half pack", 144]],
+    ]},
+    // Weighed raw: type the weight on the pack. Protein and calories are per 100 g raw.
+    { group: "By pack weight (raw)", per100: true, items: [
+      ["raw-salmon", "Salmon fillet", "raw, pack weight", 20, 215, ["pack", 474, [1]]],
+    ]},
+    // Aldi range, air-fried and weighed cooked (hot smoked fish is ready to eat, weighed as is).
+    // The last field is one piece's typical cooked weight from the pack, for one-tap adds without scales
+    // (optionally which counts to offer; 1 and 2 otherwise).
+    { group: "Aldi salmon & trout (air-fried)", per100: true, items: [
+      ["a-sal-scot", "Scottish salmon fillets", "cooked", 22, 205, ["fillet", 100]],
+      ["a-sal-boneless", "Boneless salmon fillets", "cooked", 22, 205, ["fillet", 100]],
+      ["a-sal-lsmoked", "Lightly smoked Scottish salmon", "cooked", 23, 210, ["fillet", 100]],
+      ["a-sal-gh", "Garlic & herb salmon fillets", "cooked", 21, 230, ["fillet", 100]],
+      ["a-sal-gh-inf", "Garlic & herb infused salmon", "cooked", 22, 215, ["fillet", 100]],
+      ["a-sal-swchilli", "Sweet chilli infused salmon", "cooked", 22, 220, ["fillet", 100]],
+      ["a-sal-gcl", "Ginger, chilli & lime infused salmon", "cooked", 21, 215, ["fillet", 100]],
+      ["a-sal-redthai", "Red Thai infused salmon", "cooked", 21, 215, ["fillet", 100]],
+      ["a-sal-joint", "Salmon fillet joint", "cooked", 22, 205, ["portion", 125]],
+      ["a-sal-pieces", "Salmon pieces", "cooked", 22, 205],
+      ["a-trout", "Trout fillets", "cooked", 23, 170, ["fillet", 100]],
+      ["a-sal-hs", "Hot smoked salmon fillets", "ready to eat", 24, 195, ["fillet", 90]],
+      ["a-sal-hs-swchilli", "Hot smoked sweet chilli salmon", "ready to eat", 23, 205, ["fillet", 90]],
+      ["a-sal-kiln", "Lemon & herb kiln roasted salmon", "ready to eat", 24, 200, ["fillet", 90]],
+    ]},
+    { group: "Aldi white fish, tuna & mackerel (air-fried)", per100: true, items: [
+      ["a-cod", "Cod loins", "cooked", 22, 105, ["loin", 110]],
+      ["a-hake", "Hake fillets", "cooked", 21, 100, ["fillet", 95]],
+      ["a-haddock", "Smoked haddock fillets", "cooked", 23, 105, ["fillet", 95]],
+      ["a-tuna", "Tuna steak (frozen)", "cooked", 29, 130, ["steak", 95]],
+      ["a-yftuna", "Yellowfin tuna steak", "cooked", 30, 135, ["steak", 105]],
+      ["a-basa", "Basa fillets", "cooked", 19, 120, ["fillet", 105]],
+      ["a-sbasa", "Smoked basa fillets", "cooked", 19, 120, ["fillet", 105]],
+      ["a-mack", "Hot smoked mackerel", "ready to eat", 19, 300, ["fillet", 100]],
+      ["a-mack-pep", "Hot smoked peppered mackerel", "ready to eat", 19, 300, ["fillet", 100]],
+      ["a-mack-sweet", "Hot smoked sweetcure mackerel", "ready to eat", 18, 310, ["fillet", 100]],
+    ]},
+    { group: "Aldi beef & lamb (air-fried, medium)", per100: true, items: [
+      ["a-fil-scot", "Scotch Angus fillet steak 6oz", "cooked", 28, 195, ["steak", 135]],
+      ["a-fil-brit-angus", "British Angus fillet steak 6oz", "cooked", 28, 195, ["steak", 135]],
+      ["a-fil-brit30", "British 30-day fillet steak 6oz", "cooked", 28, 195, ["steak", 135]],
+      ["a-fil-ash", "Fillet steak 28-day", "cooked", 28, 195, ["steak", 135]],
+      ["a-rump-ash", "Rump steak 21-day", "cooked", 28, 190, ["steak", 175]],
+      ["a-rump-ss", "Thick cut rump steak", "cooked", 28, 190, ["steak", 175]],
+      ["a-rump-bigdaddy", "Big Daddy rump steak 16oz", "cooked", 28, 190, ["steak", 350]],
+      ["a-ranch-brit", "British ranch steak", "cooked", 28, 185, ["steak", 155]],
+      ["a-ranch-scot", "Scotch ranch steak", "cooked", 28, 185, ["steak", 155]],
+      ["a-ee-steak", "Beef steak 21-day (Everyday Essentials)", "cooked", 28, 190, ["steak", 130]],
+      ["a-braising", "Braising steak, sliced thin", "cooked", 29, 195],
+      ["a-sirloin", "Sirloin steak 21-day", "cooked", 27, 210, ["steak", 175]],
+      ["a-ribeye", "Ribeye steak 21-day", "cooked", 25, 260, ["steak", 175]],
+      ["a-ribeye-dry", "Scotch dry-aged ribeye 8oz", "cooked", 25, 260, ["steak", 175]],
+      ["a-wag-fillet", "Wagyu fillet steak", "cooked", 26, 230, ["steak", 135]],
+      ["a-wag-rump", "Wagyu rump steak", "cooked", 26, 220, ["steak", 175]],
+      ["a-wag-sirloin", "Wagyu sirloin steak", "cooked", 25, 270, ["steak", 175]],
+      ["a-wag-ribeye", "Wagyu ribeye steak", "cooked", 23, 320, ["steak", 175]],
+      ["a-wag-flat", "Wagyu flat iron steak", "cooked", 23, 280, ["steak", 155]],
+      ["a-wag-denver", "Wagyu Denver steak", "cooked", 23, 290, ["steak", 155]],
+      ["a-wag-picanha", "Wagyu picanha steak", "cooked", 23, 300, ["steak", 155]],
+      ["a-lamb", "Lamb leg steaks", "cooked", 27, 210, ["steak", 115]],
+    ]},
+  ];
+  // An example week of main proteins, Monday first.
+  const PLAN = [
+    ["Mon", "Chicken", "Sardines"],
+    ["Tue", "Chicken", "White fish"],
+    ["Wed", "Red meat", "Chicken"],
+    ["Thu", "Chicken", "Sardines"],
+    ["Fri", "White fish", "Red meat"],
+    ["Sat", "Chicken", "Sardines"],
+    ["Sun", "Red meat", "Chicken"],
+  ];
+  const DEFAULT_PROFILE = { weightKg: null, heightCm: null, targetKg: null, gPerKg: 1.8, waistTargetCm: null, age: null, stepsPerDay: 10000, kcalTarget: null };
+  const FACTORS = [1.6, 1.8, 2.0, 2.2];
+  // Body section measures. dir is which way counts as progress: -1 down, 1 up, 0 just track it.
+  const MEASURES = [
+    { id: "waist", name: "Waist", unit: "cm", dir: -1, how: "Waist: around the widest part of your stomach, same spot every time, standing relaxed, after a normal breath out. Don’t suck in." },
+    { id: "weight", name: "Weight", unit: "kg", dir: -1, how: "Weight: after the toilet, before food or drink." },
+    { id: "neck", name: "Neck", unit: "cm", dir: 0, how: "Neck: just below the Adam’s apple, tape level. With waist and height it gives the body-fat estimate." },
+    { id: "chest", name: "Chest", unit: "cm", dir: 0, how: "Chest: across the nipples, arms by your sides, after a breath out." },
+    { id: "arm", name: "Arm, flexed", unit: "cm", dir: 1, how: "Arm: the widest part of your upper arm, flexed. Holding steady while your waist drops means you’re keeping muscle." },
+    { id: "thigh", name: "Thigh", unit: "cm", dir: 0, how: "Thigh: the widest part, standing with weight on both legs." },
+    { id: "fat", name: "Body fat, scale", unit: "%", dir: -1, how: "Body fat, scale: the smart scale's reading at your weigh-in. It swings a few points with water, so watch the trend. The tape estimate (waist and neck) wins when you have one." },
+  ];
+  const RANGE = { cm: [10, 250], kg: [30, 300], "%": [3, 70] };
+
+  const state = {
+    profile: { ...DEFAULT_PROFILE },
+    custom: [],
+    days: {},            // date -> entries[]
+    body: {},            // date -> { waist, weight, neck, ... }
+    chart: "protein",
+    date: todayStr(),
+    meal: defaultMeal(),
+    query: "",
+  };
+
+  // ---- helpers ----
+  function todayStr(d = new Date()) {
+    const z = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+  }
+  function shiftDate(s, n) { const [y, m, d] = s.split("-").map(Number); return todayStr(new Date(y, m - 1, d + n)); }
+  function prettyDate(s) {
+    const t = todayStr();
+    if (s === t) return "Today";
+    if (s === shiftDate(t, -1)) return "Yesterday";
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  }
+  function defaultMeal() { const h = new Date().getHours(); return h < 11 ? "breakfast" : h < 15 ? "lunch" : h < 18 ? "snack" : "dinner"; }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  const round1 = n => Math.round(n * 10) / 10;
+  const fmt = n => (Math.round(n * 10) / 10).toString();
+  function targetG(p = state.profile) { return p.targetKg > 0 ? Math.round(p.targetKg * (Number(p.gPerKg) || 1.8)) : null; }
+  function entries(date = state.date) { return state.days[date] || []; }
+  // By-weight entries keep protein per 100 g and the grams eaten; the rest keep protein per serving and a count.
+  const entryG = e => e.per100 ? e.protein * e.grams / 100 : e.protein * e.qty;
+  function totalOf(list) { return list.reduce((s, e) => s + entryG(e), 0); }
+  // Calories work the same way. Entries logged before calories were kept fall back to the built-in food's value.
+  const PRESET_KCAL = new Map(PRESETS.flatMap(g => g.items.map(([, name, , , kcal]) => [name, kcal])));
+  const entryKcal = e => { const k = e.kcal ?? PRESET_KCAL.get(e.name); return k == null ? null : e.per100 ? k * e.grams / 100 : k * e.qty; };
+  function kcalOf(list) {
+    let sum = 0, missing = 0;
+    for (const e of list) { const k = entryKcal(e); if (k == null) missing++; else sum += k; }
+    return { sum, missing };
+  }
+  const kc = n => Math.round(n).toLocaleString("en-GB");
+  // What a day burns, estimated. Resting burn is Katch–McArdle (from lean mass) when the Body section gives a
+  // body-fat estimate, otherwise Mifflin–St Jeor for men. A desk day is resting × 1.2, which already covers about
+  // 5,000 steps (the usual cut-off for "sedentary"); steps beyond that cost about 0.5 kcal per kg per km walked,
+  // with a stride of 41.5% of height. Nothing else is counted (no gym or sport), so it errs low on purpose.
+  const DESK_STEPS = 5000;
+  function burn(p = state.profile) {
+    const w = Number(p.weightKg), h = Number(p.heightCm), age = Number(p.age);
+    if (!(w > 0 && h > 0)) return null;
+    const bf = bodyFat(h)?.v;
+    const rest = bf != null ? 370 + 21.6 * w * (1 - bf / 100) : age > 0 ? 10 * w + 6.25 * h - 5 * age + 5 : null;
+    if (rest == null) return null;
+    const steps = p.stepsPerDay ?? DEFAULT_PROFILE.stepsPerDay;
+    const walk = 0.5 * w * Math.max(0, steps - DESK_STEPS) * h * 0.415 / 100000;
+    const r10 = n => Math.round(n / 10) * 10;
+    const parts = { rest: r10(rest), daily: r10(rest * 0.2), walk: r10(walk) };
+    return { ...parts, total: parts.rest + parts.daily + parts.walk, steps, bf, w };
+  }
+  const daysBetween = (a, b) => { const t = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((t(b) - t(a)) / 864e5); };
+  // Real burn from your own data over the last 28 days: what you ate on average, plus the energy in the
+  // weight you lost (about 7,700 kcal a kg). The weight trend is a least-squares line through the weigh-ins,
+  // so one salty day doesn't swing it. Needs 6+ weigh-ins over 14+ days and food logged on 80% of those days.
+  const REAL = { weighIns: 6, days: 14, logged: 0.8 };
+  function realBurn() {
+    const to = shiftDate(todayStr(), -1), from = shiftDate(to, -27);
+    const ws = series("weight").filter(p => p.date >= from && p.date <= to);
+    const start = ws[0]?.date;
+    const period = start ? daysBetween(start, to) + 1 : 0;
+    const dates = start ? Array.from({ length: period }, (_, i) => shiftDate(start, i)) : [];
+    const logged = dates.filter(d => entries(d).length);
+    const spread = ws.length ? daysBetween(start, ws.at(-1).date) : 0;
+    const waist = series("waist").filter(p => p.date >= from && p.date <= to);
+    const out = { weighIns: ws.length, spread, logged: logged.length, period, waistChange: waist.length > 1 ? waist.at(-1).v - waist[0].v : null };
+    if (ws.length < REAL.weighIns || spread < REAL.days || logged.length < REAL.logged * period) return { ...out, ready: false };
+    const xs = ws.map(p => daysBetween(start, p.date)), mx = xs.reduce((a, b) => a + b) / xs.length, my = ws.reduce((a, p) => a + p.v, 0) / ws.length;
+    const slope = xs.reduce((a, x, i) => a + (x - mx) * (ws[i].v - my), 0) / xs.reduce((a, x) => a + (x - mx) ** 2, 0);   // kg a day
+    const eaten = logged.reduce((a, d) => a + kcalOf(entries(d)).sum, 0) / logged.length;
+    return { ...out, ready: true, eaten, perWeek: slope * 7, total: Math.round((eaten - slope * 7700) / 10) * 10 };
+  }
+  // The daily calorie target: whatever you set in the settings, 2,200 kcal until you do. The formula burn (resting +
+  // desk day + steps, no gym or sport) is still worked out and shown beside it, so you can see the deficit; the real burn is only a check.
+  const CAL_TARGET = 2200;
+  function calTarget() {
+    const b = burn();
+    return { avg: b ? b.total : null, target: state.profile.kcalTarget ?? CAL_TARGET, b };
+  }
+  const GRAMS_KEY = "protein-log:last-grams", CHART_KEY = "protein-log:chart";
+  const lastGrams = (name, fallback = 200) => { try { return JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}")[name] || fallback; } catch { return fallback; } };
+  const rememberGrams = (name, g) => { try { const m = JSON.parse(localStorage.getItem(GRAMS_KEY) || "{}"); m[name] = g; localStorage.setItem(GRAMS_KEY, JSON.stringify(m)); } catch {} };
+  const $ = id => document.getElementById(id);
+  function el(tag, attrs = {}, ...kids) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "class") n.className = v;
+      else if (k === "style") n.style.cssText = v;
+      else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) n.setAttribute(k, v === true ? "" : v);
+    }
+    for (const k of kids.flat()) if (k != null) n.append(k.nodeType ? k : document.createTextNode(k));
+    return n;
+  }
+
+  // ---- storage ----
+  // Signed out, the log lives in this browser under one key.
+  // Signed in, it lives in Supabase (the Gym Plan project): one row per day plus one settings row,
+  // and the database only lets each account see its own rows.
+  const KEY = "protein-log:v1";
+  const SUPABASE_URL = "https://dbcuhiaggjdyeljawtxh.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_F-6NUIGGX-TEtDJo8aloRw_f-s_zwcm";   // public by design: the row rules, not this key, protect the data. gitleaks:allow
+  let localOk = true;
+  try { localStorage.setItem(`${KEY}:probe`, "1"); localStorage.removeItem(`${KEY}:probe`); } catch { localOk = false; }
+  const readLocal = () => {
+    try { const v = JSON.parse(localStorage.getItem(KEY) || "null"); return v && typeof v === "object" ? v : { profile: null, custom: [], days: {}, body: {} }; }
+    catch { return { profile: null, custom: [], days: {}, body: {} }; }
+  };
+  const writeLocal = () => {
+    if (!localOk) return;
+    try { localStorage.setItem(KEY, JSON.stringify({ profile: state.profile, custom: state.custom, days: state.days, body: state.body })); } catch {}
+  };
+  const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }) : null;
+  let user = null;
+  const must = ({ data, error }) => { if (error) throw error; return data; };
+  const profileRow = () => ({
+    user_id: user.id, weight_kg: state.profile.weightKg, height_cm: state.profile.heightCm, target_kg: state.profile.targetKg,
+    g_per_kg: state.profile.gPerKg, waist_target_cm: state.profile.waistTargetCm, age: state.profile.age,
+    steps_per_day: state.profile.stepsPerDay ?? DEFAULT_PROFILE.stepsPerDay, kcal_target: state.profile.kcalTarget, custom_foods: state.custom, saved_at: Date.now(),
+  });
+  const cloud = {
+    async load() {
+      const [p, d, b] = await Promise.all([
+        sb.from("protein_profile").select("weight_kg,height_cm,target_kg,g_per_kg,waist_target_cm,age,steps_per_day,kcal_target,custom_foods").maybeSingle(),
+        sb.from("protein_days").select("date,entries").order("date", { ascending: false }).limit(1000),
+        sb.from("body_measurements").select("date,measures").order("date", { ascending: false }).limit(1000),
+      ]);
+      const prof = must(p), days = must(d), body = must(b);
+      return {
+        profile: prof ? { weightKg: num(prof.weight_kg), heightCm: num(prof.height_cm), targetKg: num(prof.target_kg), gPerKg: num(prof.g_per_kg) ?? 1.8, waistTargetCm: num(prof.waist_target_cm),
+          age: num(prof.age), stepsPerDay: num(prof.steps_per_day) ?? DEFAULT_PROFILE.stepsPerDay, kcalTarget: num(prof.kcal_target) } : null,
+        body: Object.fromEntries(body.map(r => [r.date, r.measures && typeof r.measures === "object" ? r.measures : {}])),
+        custom: prof && Array.isArray(prof.custom_foods) ? prof.custom_foods : [],
+        days: Object.fromEntries(days.map(r => [r.date, Array.isArray(r.entries) ? r.entries : []])),
+      };
+    },
+    async saveDay(date) {
+      const list = entries(date);
+      if (!list.length) must(await sb.from("protein_days").delete().eq("date", date));
+      else must(await sb.from("protein_days").upsert({ user_id: user.id, date, entries: list, saved_at: Date.now() }, { onConflict: "user_id,date" }));
+    },
+    async saveBody(date) {
+      const m = state.body[date];
+      if (!m) must(await sb.from("body_measurements").delete().eq("date", date));
+      else must(await sb.from("body_measurements").upsert({ user_id: user.id, date, measures: m, saved_at: Date.now() }, { onConflict: "user_id,date" }));
+    },
+    async saveProfile() { must(await sb.from("protein_profile").upsert(profileRow(), { onConflict: "user_id" })); },
+  };
+  function num(v) { return v == null ? null : Number(v); }
+
+  // One write at a time per row; a burst of taps collapses into one save of the latest state.
+  const flushing = {}, pending = {};
+  function save(key, fn) {
+    writeLocalIfSignedOut();
+    if (!user) return;
+    pending[key] = fn;
+    if (flushing[key]) return;
+    flushing[key] = true;
+    (async () => {
+      while (pending[key]) {
+        const f = pending[key]; pending[key] = null;
+        try { await f(); hideError(); }
+        catch { showError("Couldn’t save that change online. Check your signal; it will save with your next change."); }
+      }
+      flushing[key] = false;
+    })();
+  }
+  function writeLocalIfSignedOut() { if (!user) writeLocal(); }
+  const saveDay = date => save("day:" + date, () => cloud.saveDay(date));
+  const saveProfile = () => save("profile", () => cloud.saveProfile());
+  const saveBody = date => save("body:" + date, () => cloud.saveBody(date));
+
+  const banner = $("banner");
+  function showError(text) { banner.className = "banner err"; banner.textContent = text; banner.hidden = false; }
+  function hideError() { if (banner.classList.contains("err")) renderBanner(); }
+  function renderBanner() {
+    banner.className = "banner";
+    if (user) { banner.hidden = true; return; }
+    banner.hidden = false;
+    banner.textContent = !localOk && !sb ? "This browser is blocking storage (a private window?), so nothing can save here."
+      : "Saved in this browser only. Sign in at the bottom to keep your log safe online.";
+  }
+
+  async function reload() {
+    if (!user) {
+      const l = readLocal();
+      state.profile = { ...DEFAULT_PROFILE, ...(l.profile || {}) };
+      state.custom = Array.isArray(l.custom) ? l.custom : [];
+      state.days = l.days && typeof l.days === "object" ? l.days : {};
+      state.body = l.body && typeof l.body === "object" ? l.body : {};
+      workouts = null;
+      render(); if (!bodyDirty) fillBodyForm(); return;
+    }
+    if (Object.values(flushing).some(Boolean)) return;   // don't overwrite changes still saving
+    try {
+      const forUser = user.id;
+      const c = await cloud.load();
+      if (!user || user.id !== forUser) return;
+      state.profile = { ...DEFAULT_PROFILE, ...(c.profile || {}) };
+      state.custom = c.custom;
+      state.days = c.days;
+      state.body = c.body;
+      loadWorkouts();
+      renderBanner();
+    } catch {
+      showError("Couldn’t load your log. Check your signal, then reload the page.");
+    }
+    render();
+    if (!bodyDirty) fillBodyForm();
+  }
+
+  // ---- account ----
+  function renderAccount(step = {}) {
+    const box = $("account");
+    box.replaceChildren();
+    if (user) {
+      box.append(
+        el("p", { class: "hint" }, el("b", {}, "Saved online"), ` to ${user.email}.`),
+        step.moved ? el("p", { class: "hint" }, `Moved ${step.moved} day${step.moved === 1 ? "" : "s"} from this browser to your online log.`) : null,
+        el("div", {}, el("button", { class: "link", type: "button", onclick: () => sb.auth.signOut() }, "Sign out")));
+      return;
+    }
+    if (!sb) { box.append(el("p", { class: "hint" }, "Online saving couldn’t load (no signal?), so the log saves in this browser for now. Reload to try again.")); return; }
+    const msg = el("p", { class: "msg", role: "status" });
+    const form = el("form", { class: "auth" },
+      el("input", { class: "input", name: "email", type: "email", autocomplete: "username", placeholder: "Email", "aria-label": "Email", required: true }),
+      el("input", { class: "input", name: "password", type: "password", autocomplete: "current-password", minlength: "8", placeholder: "Password (8+ characters)", "aria-label": "Password", required: true }),
+      el("div", { class: "row" },
+        el("button", { class: "primary", type: "submit", value: "in" }, "Sign in"),
+        el("button", { class: "secondary", type: "submit", value: "up" }, "Create account")));
+    form.addEventListener("submit", e => { e.preventDefault(); signIn(form, e.submitter?.value === "up" ? "up" : "in", msg); });
+    box.append(el("p", { class: "hint" }, "Same account as Gym Plan."), form, msg);
+  }
+  async function signIn(f, mode, msg) {
+    const email = f.elements.email.value.trim(), password = f.elements.password.value;
+    if (!email || password.length < 8) { msg.className = "msg err"; msg.textContent = "Enter your email and a password of 8 or more characters."; return; }
+    f.querySelectorAll("button").forEach(b => { b.disabled = true; });
+    msg.className = "msg"; msg.textContent = mode === "up" ? "Creating your account…" : "Signing in…";
+    const { error } = mode === "up" ? await sb.auth.signUp({ email, password }) : await sb.auth.signInWithPassword({ email, password });
+    if (!error) return;   // onAuthStateChange takes over
+    f.querySelectorAll("button").forEach(b => { b.disabled = false; });
+    msg.className = "msg err";
+    msg.textContent = error.status === 429 ? "Too many tries. Wait a few minutes, then try again."
+      : error.code === "invalid_credentials" ? "Wrong email or password. New here? Tap Create account."
+      : error.code === "user_already_exists" ? "There’s already an account with this email. Tap Sign in."
+      : (error.message || "Something went wrong. Check your signal and try again.");
+  }
+  async function useAccount(u) {
+    user = u;
+    let moved = 0;
+    if (u) {
+      // First sign-in on this browser: move its log online. Days already online win; the local copy is set aside, not deleted.
+      const mine = readLocal();
+      const days = Object.entries(mine.days || {}).filter(([, list]) => Array.isArray(list) && list.length);
+      const body = Object.entries(mine.body || {}).filter(([, m]) => m && typeof m === "object" && Object.keys(m).length);
+      if (days.length || body.length || mine.profile || (mine.custom || []).length) {
+        try {
+          if (days.length) must(await sb.from("protein_days").upsert(days.map(([date, list]) => ({ user_id: u.id, date, entries: list, saved_at: Date.now() })), { onConflict: "user_id,date", ignoreDuplicates: true }));
+          if (body.length) must(await sb.from("body_measurements").upsert(body.map(([date, m]) => ({ user_id: u.id, date, measures: m, saved_at: Date.now() })), { onConflict: "user_id,date", ignoreDuplicates: true }));
+          if (mine.profile || (mine.custom || []).length) {
+            const p = mine.profile || DEFAULT_PROFILE;
+            must(await sb.from("protein_profile").upsert({ user_id: u.id, weight_kg: p.weightKg, height_cm: p.heightCm, target_kg: p.targetKg, g_per_kg: p.gPerKg ?? 1.8, waist_target_cm: p.waistTargetCm ?? null, age: p.age ?? null, steps_per_day: p.stepsPerDay ?? DEFAULT_PROFILE.stepsPerDay, kcal_target: p.kcalTarget ?? null, custom_foods: mine.custom || [], saved_at: Date.now() }, { onConflict: "user_id", ignoreDuplicates: true }));
+          }
+          localStorage.setItem(`${KEY}:moved-online`, JSON.stringify(mine));
+          localStorage.removeItem(KEY);
+          moved = days.length;
+        } catch { /* stays local; the next sign-in or reload tries again */ }
+      }
+    }
+    renderAccount({ moved });
+    renderBanner();
+    await reload();
+  }
+
+  // ---- actions ----
+  let lastAdded = null, toastTimer = null;
+  function addEntry(item) {
+    addEntries([{ ...item, meal: state.meal }], `Added ${item.name} to ${MEALS.find(m => m.id === state.meal).name}`);
+  }
+  // Several foods in one go (staples, copy yesterday); Undo takes them all back.
+  function addEntries(items, msg) {
+    const date = state.date;
+    const added = items.map(item => {
+      const kcal = item.kcal != null && item.kcal !== "" ? { kcal: Number(item.kcal) } : {};
+      const base = { id: uid(), meal: item.meal, name: item.name, serving: item.serving || "", protein: Number(item.protein), ...kcal };
+      return item.grams ? { ...base, per100: true, grams: item.grams, t: Date.now() } : { ...base, qty: item.qty || 1, t: Date.now() };
+    });
+    state.days[date] = [...entries(date), ...added];
+    saveDay(date); render();
+    lastAdded = { date, ids: added.map(e => e.id) };
+    toast(msg);
+  }
+  // The most recent day before this one with anything logged.
+  const lastLoggedDay = () => Object.keys(state.days).filter(d => d < state.date && entries(d).length).sort().pop();
+  function copyLastDay() {
+    const prev = entries(lastLoggedDay());
+    addEntries(prev.map(({ id, t, ...e }) => e), `Copied ${prev.length} food${prev.length === 1 ? "" : "s"} from your last logged day`);
+  }
+  function changeQty(id, delta) {
+    const date = state.date;
+    state.days[date] = entries(date).map(e => e.id !== id ? e
+      : e.per100 ? { ...e, grams: Math.max(5, Math.round(e.grams + delta * 50)) }
+      : { ...e, qty: Math.max(0.5, round1(e.qty + delta)) });
+    saveDay(date); render();
+  }
+  function setGrams(id, g) {
+    if (!(g > 0)) { render(); return; }
+    const date = state.date;
+    state.days[date] = entries(date).map(e => e.id === id ? { ...e, grams: Math.min(5000, Math.round(g)) } : e);
+    saveDay(date); render();
+  }
+
+  // Foods eaten in the last 14 days that would close today's protein gap, most-eaten first, preferring ones
+  // that fit the calories left. A serving food counts if 1 or 2 servings do it; a by-weight food gives the grams, up to 400 g.
+  function gapOptions(left, kcalLeft) {
+    const seen = new Map();   // name -> most recent entry and the days it was eaten on
+    for (let i = 0; i < 14; i++) for (const e of entries(shiftDate(todayStr(), -i))) {
+      const f = seen.get(e.name) || { e, days: new Set() };
+      f.days.add(i); seen.set(e.name, f);
+    }
+    const opts = [];
+    for (const { e, days } of seen.values()) {
+      if (!(e.protein > 0)) continue;
+      const k = e.kcal ?? PRESET_KCAL.get(e.name);
+      const item = { name: e.name, serving: e.serving, protein: e.protein, ...(k != null && { kcal: k }) };
+      if (e.per100) {
+        const grams = Math.ceil(left / e.protein * 10) * 10;
+        if (grams <= 400) opts.push({ item: { ...item, grams }, label: `${e.name} ${grams} g`, kcal: k == null ? null : k * grams / 100, days: days.size });
+      } else {
+        const qty = Math.ceil(left / e.protein);
+        if (qty <= 2) opts.push({ item: { ...item, qty }, label: qty > 1 ? `${qty} × ${e.name}` : e.name, kcal: k == null ? null : k * qty, days: days.size });
+      }
+    }
+    const fits = o => kcalLeft == null || (o.kcal ?? 0) <= kcalLeft;
+    return opts.sort((a, b) => fits(b) - fits(a) || b.days - a.days || (a.kcal ?? 0) - (b.kcal ?? 0)).slice(0, 3);
+  }
+
+  // ---- weigh panel ----
+  let weighing = null;   // { name, serving, protein, kcal?, piece? } while choosing grams
+  function openWeigh(item) { weighing = item; renderWeigh(true); }
+  function renderWeigh(focus = false) {
+    const box = $("weigh");
+    if (!weighing) { box.hidden = true; box.replaceChildren(); return; }
+    const item = weighing;
+    const start = lastGrams(item.name, item.piece?.[1]);
+    const input = el("input", { class: "input", id: "weighGrams", type: "number", min: "5", max: "5000", step: "50", inputmode: "numeric", value: String(start), "aria-label": `Grams of ${item.name}` });
+    const out = el("span", { class: "out" });
+    const chips = el("div", { class: "chips" });
+    const sync = () => {
+      const g = Number(input.value);
+      out.textContent = g > 0 ? `= ${fmt(item.protein * g / 100)} g protein${item.kcal ? ` · ${Math.round(item.kcal * g / 100)} kcal` : ""}` : "";
+      for (const b of chips.children) b.setAttribute("aria-pressed", String(Number(b.dataset.g) === g));
+    };
+    // Pieces first (e.g. 1 and 2 fillets at their typical cooked weight), then 50 g steps.
+    if (item.piece) {
+      const [label, pg, counts = [1, 2]] = item.piece;
+      for (const n of counts) chips.append(el("button", { type: "button", "data-g": String(n * pg), onclick: () => { input.value = n * pg; sync(); } },
+        `${n} ${label}${n > 1 ? "s" : ""} · ${fmt(item.protein * n * pg / 100)}`));
+    }
+    for (const g of [50, 100, 150, 200, 250, 300, 350, 400, 450, 500]) chips.append(el("button", { type: "button", "data-g": String(g), onclick: () => { input.value = g; sync(); } }, `${g} g · ${fmt(item.protein * g / 100)}`));
+    const add = () => {
+      const g = Math.round(Number(input.value));
+      if (!(g > 0)) { input.focus(); return; }
+      rememberGrams(item.name, g);
+      weighing = null; renderWeigh();
+      addEntry({ ...item, grams: g });
+    };
+    input.addEventListener("input", sync);
+    input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); add(); } });
+    box.replaceChildren(
+      el("div", { class: "weigh-head" }, el("b", {}, `${item.name}: how much?`), el("span", { class: "note" },
+        `${fmt(item.protein)} g protein${item.kcal ? ` · ${item.kcal} kcal` : ""} per 100 g ${item.serving}${item.piece ? ` · 1 ${item.piece[0]} ≈ ${item.piece[1]} g` : ""}`)),
+      el("div", { class: "weigh-row" }, el("span", { class: "grams" }, input, "g"), out),
+      chips,
+      el("div", { class: "weigh-row" },
+        el("button", { class: "primary", type: "button", onclick: add }, "Add"),
+        el("button", { class: "secondary", type: "button", onclick: () => { weighing = null; renderWeigh(); } }, "Cancel")));
+    box.hidden = false;
+    sync();
+    if (focus) { box.scrollIntoView({ behavior: "smooth", block: "center" }); input.focus({ preventScroll: true }); input.select(); }
+  }
+  function removeEntry(id, date = state.date) {
+    state.days[date] = entries(date).filter(e => e.id !== id);
+    if (!state.days[date].length) delete state.days[date];
+    saveDay(date); render();
+  }
+  function setProfile(patch) { state.profile = { ...state.profile, ...patch }; saveProfile(); render(); }
+  function setCustom(list) { state.custom = list; saveProfile(); render(); }
+  function toast(msg) {
+    $("toastMsg").textContent = msg; $("toast").hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { $("toast").hidden = true; lastAdded = null; }, 4000);
+  }
+  $("toastUndo").addEventListener("click", () => {
+    if (lastAdded) {
+      const { date, ids } = lastAdded;
+      state.days[date] = entries(date).filter(e => !ids.includes(e.id));
+      if (!state.days[date].length) delete state.days[date];
+      saveDay(date); render();
+    }
+    lastAdded = null; $("toast").hidden = true;
+  });
+
+  // ---- render ----
+  function render() {
+    const list = entries();
+    const tgt = targetG();
+    const total = totalOf(list);
+    $("dateLabel").textContent = prettyDate(state.date);
+    $("nextDay").disabled = state.date >= todayStr();
+    $("total").textContent = fmt(total);
+    $("target").textContent = tgt ?? "–";
+    const st = $("status");
+    if (!tgt) { st.className = "pill"; st.textContent = "Set your target"; }
+    else {
+      const left = tgt - total;
+      st.className = "pill" + (left <= 0 ? " done" : left <= 20 ? " close" : "");
+      st.textContent = left <= 0 ? `Target hit +${fmt(-left)} g` : `${fmt(left)} g to go`;
+    }
+
+    // stacked bar by meal
+    const bar = $("bar"); bar.replaceChildren();
+    const scale = Math.max(tgt || 0, total) || 1;
+    const legend = $("legend"); legend.replaceChildren();
+    for (const m of MEALS) {
+      const g = totalOf(list.filter(e => e.meal === m.id));
+      if (g > 0) bar.append(el("span", { style: `width:${(g / scale) * 100}%;background:${m.color}` }));
+      legend.append(el("span", {}, el("i", { style: `background:${m.color}` }), `${m.name} `, el("span", { class: "num" }, `${fmt(g)} g`)));
+    }
+    bar.setAttribute("aria-label", tgt ? `${fmt(total)} of ${tgt} grams` : `${fmt(total)} grams`);
+
+    // calories against the daily target (burn − 500)
+    const { sum: kIn, missing } = kcalOf(list);
+    const ct = calTarget();
+    $("kcal").textContent = kc(kIn);
+    $("kcalTarget").textContent = ct ? kc(ct.target) : "–";
+    const ks = $("kcalStatus");
+    if (!ct) { ks.className = "pill"; ks.textContent = "Estimate your burn"; }
+    else {
+      const left = ct.target - kIn;
+      ks.className = "pill" + (left < 0 ? " over" : " close");
+      ks.textContent = left < 0 ? `${kc(-left)} over target` : `${kc(left)} left`;
+    }
+    const kbar = $("kbar"); kbar.replaceChildren();
+    const kscale = Math.max(ct?.target || 0, kIn) || 1;
+    const within = ct ? Math.min(kIn, ct.target) : kIn;
+    if (within > 0) kbar.append(el("span", { style: `width:${(within / kscale) * 100}%;background:var(--accent)` }));
+    if (ct && kIn > ct.target) {
+      kbar.append(el("span", { style: `width:${((kIn - ct.target) / kscale) * 100}%;background:var(--warn)` }));
+      kbar.append(el("span", { class: "mark", style: `left:${(ct.target / kscale) * 100}%` }));
+    }
+    kbar.setAttribute("aria-label", ct ? `${kc(kIn)} of a ${kc(ct.target)} calorie target` : `${kc(kIn)} calories`);
+    // today only: foods you eat that would close the protein gap, one tap to add
+    const gap = $("gap"); gap.replaceChildren();
+    const opts = tgt && state.date === todayStr() && total < tgt ? gapOptions(tgt - total, ct ? ct.target - kIn : null) : [];
+    gap.hidden = !opts.length;
+    if (opts.length) gap.append(el("span", { class: "note" }, "Close it:"),
+      ...opts.map(o => el("button", { type: "button", onclick: () => addEntries([{ ...o.item, meal: state.meal }], `Added ${o.label} to ${MEALS.find(m => m.id === state.meal).name}`) },
+        o.kcal == null ? o.label : `${o.label} · ${kc(o.kcal)} kcal`)));
+    $("kcalNote").textContent = [
+      !ct ? "Add your age under Your target and burn." : "",
+      missing ? `${missing} food${missing === 1 ? "" : "s"} without calories.` : "",
+    ].filter(Boolean).join(" ");
+
+    // meals
+    const meals = $("meals"); meals.replaceChildren();
+    if (!list.length) {
+      meals.append(el("p", { class: "hint", style: "margin:0 4px" }, "Nothing logged yet."));
+      const last = lastLoggedDay();
+      if (last) meals.append(el("div", { class: "quick" },
+        el("button", { type: "button", onclick: copyLastDay }, `Repeat my last logged day (${entries(last).length})`)));
+    }
+    for (const m of MEALS) {
+      const items = list.filter(e => e.meal === m.id);
+      const ul = el("ul", { class: "entries" });
+      for (const e of items) {
+        const amount = e.per100
+          ? el("input", { type: "number", min: "5", max: "5000", step: "50", inputmode: "numeric", value: String(e.grams), "aria-label": `Grams of ${e.name}`,
+              onchange: ev => setGrams(e.id, Number(ev.target.value)), onkeydown: ev => { if (ev.key === "Enter") ev.target.blur(); } })
+          : el("span", { class: "num" }, `×${fmt(e.qty)}`);
+        ul.append(el("li", { class: "entry" },
+          el("div", { class: "name" }, el("b", {}, e.name),
+            el("small", {}, (e.per100 ? `${fmt(e.protein)} g per 100 g${e.serving ? ` ${e.serving}` : ""}` : e.serving ? `${e.serving} · ${fmt(e.protein)} g each` : `${fmt(e.protein)} g each`)
+              + (entryKcal(e) != null ? ` · ${kc(entryKcal(e))} kcal` : ""))),
+          el("div", { class: "entry-row2" },
+            el("div", { class: "qty" },
+              el("button", { type: "button", "aria-label": e.per100 ? `25 g less ${e.name}` : `Less ${e.name}`, onclick: () => changeQty(e.id, -0.5) }, "−"),
+              amount, e.per100 ? el("span", { class: "num", style: "min-width:0;padding-right:4px" }, "g") : null,
+              el("button", { type: "button", "aria-label": e.per100 ? `25 g more ${e.name}` : `More ${e.name}`, onclick: () => changeQty(e.id, 0.5) }, "+")),
+            el("span", { class: "g num" }, `${fmt(entryG(e))} g`)),
+          el("button", { class: "del", type: "button", "aria-label": `Remove ${e.name}`, onclick: () => removeEntry(e.id) }, "×")));
+      }
+      meals.append(el("div", { class: "meal" },
+        el("div", { class: "meal-head" },
+          el("span", { class: "dot", style: `background:${m.color}` }),
+          el("h2", {}, m.name),
+          el("span", { class: "sum num" }, items.length ? `${fmt(totalOf(items))} g${kcalOf(items).sum ? ` · ${kc(kcalOf(items).sum)} kcal` : ""}` : ""),
+          el("button", { class: "add", type: "button", onclick: () => { state.meal = m.id; render(); $("picker").scrollIntoView({ behavior: "smooth", block: "start" }); } }, "+ Add")),
+        ul));
+    }
+
+    // meal selector
+    const seg = $("mealSeg"); seg.replaceChildren();
+    for (const m of MEALS) seg.append(el("button", { type: "button", "aria-pressed": String(state.meal === m.id), onclick: () => { state.meal = m.id; render(); } }, m.name));
+
+    renderGroups();
+    renderHistory();
+    renderPlan();
+    renderBody();
+    renderSettings();
+  }
+
+  function renderGroups() {
+    const norm = t => t.toLowerCase().replace(/-/g, " ");   // "air fried" finds "air-fried"
+    const q = norm(state.query.trim());
+    const words = q.split(/\s+/).filter(Boolean);   // every word must appear, in any order
+    const groups = $("groups"); groups.replaceChildren();
+    const all = [];
+    if (state.custom.length) all.push({ group: "My foods", custom: true, items: state.custom.map(c => [c.id, c.name, c.serving || "", c.protein, c.kcal]) });
+    all.push(...PRESETS);
+    let shown = 0;
+    for (const g of all) {
+      const items = g.items.filter(([, name, serving]) => !q || words.every(w => norm(`${g.group} ${name} ${serving}`).includes(w)));
+      if (!items.length) continue;
+      shown += items.length;
+      const tiles = el("div", { class: "tiles" });
+      for (const [id, name, serving, protein, kcal, piece] of items) {
+        const cal = kcal ? el("span", { class: "k" }, ` · ${kcal} kcal`) : null;
+        const tile = g.per100
+          ? el("button", { class: "tile", type: "button", onclick: () => openWeigh({ name, serving, protein, kcal, piece }) },
+              el("b", {}, name), el("small", {}, piece ? `${serving} · 1 ${piece[0]} ≈ ${piece[1]} g` : `Enter grams · ${serving}`),
+              el("span", { class: "p" }, `${fmt(protein)} g / 100 g`, cal))
+          : el("button", { class: "tile", type: "button", onclick: () => addEntry({ name, serving, protein, kcal }) },
+              el("b", {}, name), el("small", {}, serving || "1 serving"), el("span", { class: "p" }, `+${fmt(protein)} g`, cal));
+        if (g.custom) {
+          const drop = ev => { ev.preventDefault(); ev.stopPropagation(); setCustom(state.custom.filter(c => c.id !== id)); };
+          tile.append(el("span", { class: "rm", role: "button", tabindex: "0", "aria-label": `Remove ${name} from my foods`,
+            onclick: drop, onkeydown: ev => { if (ev.key === "Enter" || ev.key === " ") drop(ev); } }, "×"));
+        }
+        tiles.append(tile);
+      }
+      const head = el("span", { class: "label" }, g.group);
+      groups.append(el("div", { class: "group" }, head, tiles));
+    }
+    if (!shown) groups.append(el("p", { class: "hint" }, `No match for "${state.query}".`));
+  }
+
+  function renderHistory() {
+    const hist = $("hist"); hist.replaceChildren();
+    const cal = state.chart === "kcal";
+    const ct = calTarget();
+    const tgt = cal ? ct?.target : targetG();
+    const unit = cal ? "kcal" : "g";
+    const today = todayStr();
+    const days = Array.from({ length: 7 }, (_, i) => shiftDate(today, i - 6));
+    const totals = days.map(d => cal ? kcalOf(entries(d)).sum : totalOf(entries(d)));
+    const max = Math.max((tgt || 0) * 1.15, ...totals) || 1;
+    // Protein is short when under the target; calories are off when over it.
+    const off = v => tgt && v > 0 && (cal ? v > tgt : v < tgt);
+    days.forEach((d, i) => {
+      const v = totals[i];
+      const [y, m, dd] = d.split("-").map(Number);
+      const lbl = d === today ? "Today" : new Date(y, m - 1, dd).toLocaleDateString("en-GB", { weekday: "short" });
+      const stack = el("div", { class: "stack" },
+        tgt ? el("div", { class: "tline", style: `bottom:${(tgt / max) * 100}%` }) : null,
+        el("div", { class: "fill" + (off(v) ? " under" : ""), style: `height:${(v / max) * 100}%` }));
+      hist.append(el("button", { class: "hcol", type: "button", "aria-current": String(d === state.date), "aria-label": `${prettyDate(d)}: ${Math.round(v)} ${unit}`, onclick: () => { state.date = d; render(); } },
+        el("span", { class: "hv" }, v ? String(Math.round(v)) : "–"), stack, el("small", {}, lbl)));
+    });
+    const seg = $("chartSeg"); seg.replaceChildren();
+    for (const [id, name] of [["protein", "Protein"], ["kcal", "Calories"]]) seg.append(el("button", { type: "button", "aria-pressed": String(state.chart === id), onclick: () => { state.chart = id; try { localStorage.setItem(CHART_KEY, id); } catch {} renderHistory(); } }, name));
+    const logged = totals.filter(v => v > 0);
+    const avg = logged.length ? Math.round(logged.reduce((a, b) => a + b, 0) / logged.length) : 0;
+    $("avg").textContent = !logged.length ? (tgt ? "Dashed line = your target" : "")
+      : tgt ? `Avg ${kc(avg)} ${unit} · ${cal ? "within target" : "hit"} ${totals.filter(v => v > 0 && !off(v)).length}/7 · dashed line = target` : `Avg ${kc(avg)} ${unit}`;
+    // Calories against the average burn: today isn't counted until it's over.
+    const done = days.filter(d => d < today && entries(d).length);
+    const avgK = done.length ? done.reduce((s, d) => s + kcalOf(entries(d)).sum, 0) / done.length : 0;
+    const gap = ct.avg != null ? ct.avg - avgK : 0;
+    $("avgKcal").textContent = !done.length ? ""
+      : `Avg ${kc(avgK)} kcal` + (ct.avg != null ? ` · ${kc(Math.abs(gap))} ${gap >= 0 ? "under" : "over"} burn ≈ ${fmt(Math.abs(gap) * 7 / 7700)} kg fat a week` : "");
+  }
+
+  function renderPlan() {
+    const [y, m, d] = state.date.split("-").map(Number);
+    const day = (new Date(y, m - 1, d).getDay() + 6) % 7;   // Monday = 0
+    $("plan").replaceChildren(...PLAN.map(([name, ...proteins], i) =>
+      el("li", { "aria-current": i === day ? "date" : null }, el("span", {}, name), el("div", { class: "tags" }, proteins.map(p => el("b", {}, p))))));
+  }
+
+  // ---- body ----
+  const shortDate = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
+  const bodyDates = () => Object.keys(state.body).sort();
+  // One measure over time, oldest first, from the dates it was measured on.
+  const series = id => bodyDates().filter(d => state.body[d][id] > 0).map(d => ({ date: d, v: Number(state.body[d][id]) }));
+  // US Navy tape method for men, in cm: usually within 3–4 points of a body scan.
+  function navyBodyFat(waist, neck, height) {
+    if (!(waist > neck && neck > 0 && height > 0)) return null;
+    const bf = 495 / (1.0324 - 0.19077 * Math.log10(waist - neck) + 0.15456 * Math.log10(height)) - 450;
+    return bf > 2 && bf < 60 ? bf : null;
+  }
+  // Body fat for the burn: the tape estimate if there is one, otherwise the latest smart-scale reading.
+  function bodyFat(height) {
+    const tape = navyBodyFat(series("waist").at(-1)?.v, series("neck").at(-1)?.v, height);
+    if (tape != null) return { v: tape, src: "tape" };
+    const scale = series("fat").at(-1)?.v;
+    return scale > 0 ? { v: scale, src: "scale" } : null;
+  }
+  let bodyDirty = false, armedBody = null, armTimer = null;
+  function fillBodyForm() {
+    const d = $("bDate").value || todayStr();
+    const have = state.body[d];
+    $("bExisting").hidden = !have;
+    for (const m of MEASURES) $(`b-${m.id}`).value = have?.[m.id] ?? "";
+    bodyDirty = false;
+  }
+  // A small trend line for a measurement tile: no labels, coloured by whether it's moving the right way.
+  function miniSpark(s, cls) {
+    const W = 120, H = 26, P = 3;
+    let lo = Math.min(...s.map(p => p.v)), hi = Math.max(...s.map(p => p.v));
+    if (hi - lo < 1) { const mid = (hi + lo) / 2; lo = mid - 0.5; hi = mid + 0.5; }
+    const x = i => P + (i / (s.length - 1)) * (W - 2 * P), y = v => P + (1 - (v - lo) / (hi - lo)) * (H - 2 * P);
+    const color = cls === "good" ? "var(--accent)" : cls === "bad" ? "var(--warn)" : "var(--muted)";
+    const box = el("div", { class: "spark" });
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${s.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join("")}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${x(s.length - 1).toFixed(1)}" cy="${y(s.at(-1).v).toFixed(1)}" r="3" fill="${color}"/></svg>`;
+    return box;
+  }
+  function spark(s, tgt) {
+    const W = 300, H = 72, L = 4, R = 40, T = 8, B = 16;
+    const vs = s.map(p => p.v).concat(tgt ? [tgt] : []);
+    let lo = Math.min(...vs), hi = Math.max(...vs);
+    if (hi - lo < 4) { const mid = (hi + lo) / 2; lo = mid - 2; hi = mid + 2; }
+    const x = i => L + (i / (s.length - 1)) * (W - L - R);
+    const y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+    const line = s.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join("");
+    const font = `font-size="10" fill="var(--muted)" font-family="IBM Plex Mono, ui-monospace, monospace"`;
+    const box = el("div", { class: "spark" });
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Waist from ${fmt(s[0].v)} to ${fmt(s.at(-1).v)} cm${tgt ? `, target ${fmt(tgt)} cm` : ""}">
+      ${tgt ? `<line x1="${L}" x2="${W - R}" y1="${y(tgt).toFixed(1)}" y2="${y(tgt).toFixed(1)}" stroke="var(--ink)" stroke-opacity=".35" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <text x="${W - R + 6}" y="${(y(tgt) + 3).toFixed(1)}" ${font}>${fmt(tgt)}</text>` : ""}
+      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${x(s.length - 1).toFixed(1)}" cy="${y(s.at(-1).v).toFixed(1)}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>
+      <text x="${L}" y="${H - 2}" ${font}>${shortDate(s[0].date)}</text>
+      <text x="${W - R}" y="${H - 2}" text-anchor="end" ${font}>${shortDate(s.at(-1).date)}</text></svg>`;
+    return box;
+  }
+  function renderBody() {
+    const p = state.profile;
+    const h = Number(p.heightCm);
+    const tgt = Number(p.waistTargetCm) > 0 ? Number(p.waistTargetCm) : null;
+    const dates = bodyDates();
+    const waist = series("waist");
+    $("bodyLast").textContent = dates.length ? `Last measured ${prettyDate(dates.at(-1))}` : "";
+
+    // Quick weigh-in: the 7-day average against the week before, since single days swing with water.
+    const ws = series("weight"), today = todayStr();
+    const avgIn = (a, b) => { const v = ws.filter(p => p.date > a && p.date <= b).map(p => p.v); return v.length ? v.reduce((x, y) => x + y) / v.length : null; };
+    const wk = avgIn(shiftDate(today, -7), today), prevWk = avgIn(shiftDate(today, -14), shiftDate(today, -7));
+    const wi = $("wKg"); if (document.activeElement !== wi) wi.value = state.body[today]?.weight ?? "";
+    $("wNote").textContent = wk == null ? "" 
+      : `7-day average ${fmt(wk)} kg` + (prevWk != null ? ` (${wk - prevWk <= 0 ? "−" : "+"}${fmt(Math.abs(wk - prevWk))} on the week before)` : "");
+    const top = $("bodyTop"); top.replaceChildren();
+    if (waist.length) {
+      const now = waist.at(-1).v, first = waist[0].v, left = tgt ? now - tgt : null;
+      top.append(el("div", { class: "body-big" },
+        el("span", { class: "val" }, fmt(now)),
+        el("span", { class: "of" }, tgt ? `cm waist · target ${fmt(tgt)} cm` : "cm waist"),
+        tgt ? el("span", { class: "pill" + (left <= 0 ? " done" : left <= 2 ? " close" : "") }, left <= 0 ? "Target hit" : `${fmt(left)} cm to go`) : null));
+      if (tgt && first > tgt) {
+        const pct = Math.min(100, Math.max(0, ((first - now) / (first - tgt)) * 100));
+        top.append(el("div", { class: "bar", role: "img", "aria-label": `${Math.round(pct)}% of the way from ${fmt(first)} to ${fmt(tgt)} cm` },
+          el("span", { style: `width:${pct}%;background:var(--accent)` })));
+      }
+      if (waist.length > 1) top.append(spark(waist, tgt));
+      const stats = el("div", { class: "stats" });
+      if (waist.length > 1) {
+        const d = first - now;
+        stats.append(el("span", {}, d > 0 ? "Down " : d < 0 ? "Up " : "", el("b", {}, d ? `${fmt(Math.abs(d))} cm` : "Same"), ` since ${shortDate(waist[0].date)}`));
+      }
+      if (h > 0) {
+        stats.append(el("span", {}, "Waist ÷ height ", el("b", {}, (now / h).toFixed(2)), " · under 0.50 is healthy, about 0.45 looks lean"));
+        const neck = series("neck").at(-1)?.v;
+        const bf = navyBodyFat(now, neck, h);
+        stats.append(bf != null
+          ? el("span", {}, "Body fat ≈ ", el("b", {}, `${Math.round(bf)}%`), " (US Navy tape method for men, ±3–4%)")
+          : el("span", { class: "note" }, "Add your neck to see a tape body-fat estimate."));
+      } else stats.append(el("span", { class: "note" }, "Add your height under Your target to see waist ÷ height and body fat."));
+      top.append(stats);
+    } else {
+      top.append(el("p", { class: "hint" }, "Measure your waist below to start."));
+    }
+
+    const ul = $("measures"); ul.replaceChildren();
+    // Tape measurements first, each with its trend line; weight last and as a number only.
+    for (const m of [...MEASURES.filter(m => m.id !== "weight"), ...MEASURES.filter(m => m.id === "weight")]) {
+      if (m.id === "waist") continue;
+      const s = series(m.id);
+      if (!s.length) continue;
+      const d = s.at(-1).v - s[0].v;
+      const cls = !m.dir || s.length < 2 || Math.abs(d) < 0.05 ? "" : Math.sign(d) === m.dir ? "good" : "bad";
+      ul.append(el("li", { class: "measure" },
+        el("small", {}, m.name),
+        el("span", { class: "mv" }, `${fmt(s.at(-1).v)} ${m.unit}`),
+        el("small", { class: cls }, s.length < 2 ? shortDate(s[0].date) : `${d > 0 ? "+" : d < 0 ? "−" : "±"}${fmt(Math.abs(d))} since ${shortDate(s[0].date)}`),
+        m.id === "weight" && p.targetKg > 0 ? el("small", {}, `Target ${fmt(p.targetKg)} kg`) : null,
+        m.id !== "weight" && s.length > 1 ? miniSpark(s, cls) : null));
+    }
+
+    for (const m of MEASURES) { const last = series(m.id).at(-1); $(`b-${m.id}`).placeholder = last ? fmt(last.v) : m.unit; }
+    const wt = $("sWaistTarget"); if (document.activeElement !== wt) wt.value = p.waistTargetCm ?? "";
+    $("waistAdvice").textContent = h > 0
+      ? `Healthy under ${Math.round(h * 0.5)} cm · lean ≈ ${Math.round(h * 0.45)} cm`
+      : "";
+
+    const hist = $("bodyHist"); hist.replaceChildren();
+    if (dates.length) {
+      const list = el("ul", { class: "bhist" });
+      for (const d of [...dates].reverse().slice(0, 12)) {
+        const vals = MEASURES.filter(m => state.body[d][m.id] > 0).map(m => `${m.name.split(",")[0]} ${fmt(state.body[d][m.id])}`).join(" · ");
+        list.append(el("li", {},
+          el("div", {}, el("span", { class: "d" }, shortDate(d)), el("span", { class: "vals" }, vals)),
+          el("div", {},
+            el("button", { type: "button", onclick: () => { $("bDate").value = d; fillBodyForm(); $("bodyForm").scrollIntoView({ behavior: "smooth", block: "center" }); } }, "Edit"),
+            el("button", { type: "button", class: armedBody === d ? "armed" : "", onclick: () => deleteBody(d) }, armedBody === d ? "Tap again to delete" : "Delete"))));
+      }
+      hist.append(el("div", { class: "group" }, el("span", { class: "label" }, "Measured"), list));
+    }
+  }
+  function deleteBody(d) {
+    clearTimeout(armTimer);
+    if (armedBody !== d) { armedBody = d; armTimer = setTimeout(() => { armedBody = null; renderBody(); }, 4000); renderBody(); return; }
+    armedBody = null;
+    delete state.body[d];
+    saveBody(d); render();
+    if ($("bDate").value === d) fillBodyForm();
+  }
+
+  function renderSettings() {
+    const p = state.profile;
+    for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"], ["sAge", "age"], ["sSteps", "stepsPerDay"], ["sKcal", "kcalTarget"]]) {
+      const inp = $(id); if (document.activeElement !== inp) inp.value = key === "kcalTarget" ? calTarget().target : p[key] ?? "";
+    }
+    const seg = $("factorSeg"); seg.replaceChildren();
+    for (const f of FACTORS) seg.append(el("button", { type: "button", "aria-pressed": String(Number(p.gPerKg) === f), onclick: () => setProfile({ gPerKg: f }) }, `${f.toFixed(1)} g/kg`));
+    const t = Number(p.targetKg);
+    if (t > 0) {
+      $("calcEq").textContent = `${fmt(t)} kg × ${Number(p.gPerKg).toFixed(1)} g/kg = ${targetG()} g a day`;
+      $("calcRange").textContent = "";
+    } else {
+      $("calcEq").textContent = "Enter your target weight to set your daily protein.";
+      $("calcRange").textContent = "";
+    }
+    const h = Number(p.heightCm), w = Number(p.weightKg);
+    const bmi = kg => (kg / (h / 100) ** 2).toFixed(1);
+    $("calcBmi").textContent = h > 0 && w > 0
+      ? `BMI now ${bmi(w)} at ${fmt(w)} kg${t > 0 ? ` · at ${fmt(t)} kg it would be ${bmi(t)}` : ""}.`
+      : "Add your weight and height to see your BMI.";
+    const b = burn(), ct = calTarget(), real = realBurn(), bf = bodyFat(h);
+    $("burnEq").textContent = ct.avg != null ? `Target ${kc(ct.target)} kcal a day · burn ≈ ${kc(ct.avg)}, so ${kc(ct.avg - ct.target)} under` : `Target ${kc(ct.target)} kcal a day. Add age, weight and height to see your burn.`;
+    $("burnHow").textContent = [
+      b && bf ? `Resting from lean mass ${fmt(b.w * (1 - bf.v / 100))} kg (body fat ${fmt(bf.v)}%, ${bf.src === "tape" ? "tape" : "smart scale"}).` : "",
+      b ? `Resting ${kc(b.rest)} + desk day ${kc(b.daily)} + ${b.steps.toLocaleString("en-GB")} steps ${kc(b.walk)}. No gym counted.` : "",
+      real.ready ? `Real burn from your weigh-ins ≈ ${kc(real.total)}${real.waistChange != null ? ` (waist ${real.waistChange <= 0 ? "−" : "+"}${fmt(Math.abs(real.waistChange))} cm)` : ""}.` : "",
+    ].filter(Boolean).join(" ");
+  }
+
+  // ---- check-in ----
+  // The last 28 days as plain text for an AI to read: targets, each logged day, averages, body measurements
+  // and the most-logged foods. Today is listed but left out of the averages, since it isn't over.
+  const CHECKIN_DAYS = 28;
+  function checkinText(workouts = null) {
+    const p = state.profile, today = todayStr(), winFrom = shiftDate(today, 1 - CHECKIN_DAYS);
+    // Food starts at the first logged day if that's later, so days before you started don't count as missed.
+    const firstLogged = Object.keys(state.days).filter(d => entries(d).length).sort()[0];
+    const from = firstLogged > winFrom ? firstLogged : winFrom;
+    const tgt = targetG(), ct = calTarget(), real = realBurn();
+    const waistTgt = Number(p.waistTargetCm) > 0 ? Number(p.waistTargetCm) : null;
+    const me = [p.weightKg > 0 && `${fmt(p.weightKg)} kg`, p.heightCm > 0 && `${p.heightCm} cm`, p.age > 0 && `age ${p.age}`].filter(Boolean);
+    const dates = Array.from({ length: daysBetween(from, today) + 1 }, (_, i) => shiftDate(from, i));
+    const day = d => { const l = entries(d); return { d, g: totalOf(l), k: kcalOf(l).sum, n: l.length }; };
+    const logged = dates.map(day).filter(x => x.n);
+    const done = logged.filter(x => x.d < today);
+    const avg = (xs, f) => xs.length ? xs.reduce((a, x) => a + f(x), 0) / xs.length : null;
+    const long = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }); };
+    const lines = [
+      `Protein Log check-in, ${long(today)} (food since ${long(from)})`,
+      `Summarise how I'm doing against my targets${workouts?.length ? ", whether my lifts are holding while my waist drops" : ""}, what's going well, and the one or two things to change.`,
+      "",
+      "Targets",
+      tgt ? `- Protein: ${tgt} g a day (${fmt(p.targetKg)} kg target weight × ${Number(p.gPerKg).toFixed(1)} g/kg)` : "- Protein: not set",
+      `- Calories: ${kc(ct.target)} kcal a day, chosen${ct.b ? ` (estimated burn ${kc(ct.avg)}; the burn counts resting + ${ct.b.steps.toLocaleString("en-GB")} steps only, no gym or sport)` : ""}`,
+      waistTgt ? `- Waist: ${fmt(waistTgt)} cm (main goal)` : null,
+      p.targetKg > 0 ? `- Weight: ${fmt(p.targetKg)} kg (a checkpoint, not the main goal)` : null,
+      me.length ? `- Me: ${me.join(", ")}` : null,
+      "",
+      `Food (protein g, kcal) — ${done.length} of ${dates.length - 1} finished days logged; days not listed had nothing logged`,
+      ...logged.map(x => `- ${long(x.d)}: ${Math.round(x.g)} g, ${kc(x.k)} kcal${x.d === today ? " (today, so far)" : ""}`),
+    ];
+    if (done.length) {
+      const last7 = done.filter(x => x.d >= shiftDate(today, -7));
+      lines.push("", "Averages (finished days)",
+        `- All ${done.length} days: ${Math.round(avg(done, x => x.g))} g protein, ${kc(avg(done, x => x.k))} kcal`,
+        last7.length ? `- Last 7 days (${last7.length} logged): ${Math.round(avg(last7, x => x.g))} g protein, ${kc(avg(last7, x => x.k))} kcal` : null,
+        tgt ? `- Protein target hit on ${done.filter(x => x.g >= tgt).length} of ${done.length} days` : null,
+        ct ? `- Calories at or under target on ${done.filter(x => x.k <= ct.target).length} of ${done.length} days` : null);
+    }
+    // Body: the very first measurement as a baseline, then everything in the window.
+    const bd = bodyDates(), inWin = bd.filter(d => d >= winFrom);
+    const shown = bd.length && bd[0] < winFrom ? [bd[0], ...inWin] : inWin;
+    if (shown.length) {
+      lines.push("", "Body measurements (cm, weight in kg, scale body fat in %)",
+        ...shown.map(d => `- ${long(d)}${d < winFrom ? " (first ever)" : ""}: ${MEASURES.filter(m => state.body[d][m.id] > 0).map(m => `${m.name.split(",")[0].toLowerCase()} ${fmt(state.body[d][m.id])}`).join(", ")}`));
+      const h = Number(p.heightCm), waist = series("waist").at(-1)?.v, bf = bodyFat(h);
+      if (h > 0 && waist) lines.push(`- Waist ÷ height now ${(waist / h).toFixed(2)}`);
+      if (bf) lines.push(`- Body fat used for the burn ≈ ${fmt(bf.v)}% (${bf.src === "tape" ? "US Navy tape method" : "smart scale"})`);
+    }
+    if (real.ready) lines.push("", `Real burn from weigh-ins: ≈ ${kc(real.total)} kcal a day (ate ${kc(real.eaten)} on average, weight trend ${real.perWeek <= 0 ? "−" : "+"}${fmt(Math.abs(real.perWeek))} kg a week)`);
+    // Most-logged foods, by how many days they appear on.
+    const counts = new Map();
+    for (const x of logged) for (const name of new Set(entries(x.d).map(e => e.name))) counts.set(name, (counts.get(name) || 0) + 1);
+    const top = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    if (top.length) lines.push("", "Most-logged foods (days)", top.map(([n, c]) => `${n} ${c}`).join(", "));
+    if (workouts?.length) lines.push("", ...trainingLines(workouts, winFrom, today));
+    return lines.filter(l => l != null).join("\n");
+  }
+  // Training from the Gym Plan app: same account and Supabase project, so its rows are readable here.
+  const SESSIONS = { legs: "Legs", push: "Push", pull: "Pull", full: "Full body" };
+  const WORDS = { db: "dumbbell", ext: "extension", iso: "iso-lateral", rdl: "RDL", chin: "chin-up", lat: "lateral" };
+  const liftName = id => { const s = id.split("-").map(w => WORDS[w] ?? w).join(" "); return s[0].toUpperCase() + s.slice(1); };
+  function trainingLines(workouts, from, today) {
+    const ws = workouts.filter(w => SESSIONS[w.session] && w.date >= from).sort((a, b) => a.date.localeCompare(b.date));
+    if (!ws.length) return [];
+    const days = daysBetween(ws[0].date > from ? ws[0].date : from, today) + 1;
+    const lines = [`Training (Gym Plan) — ${ws.length} sessions in ${days} days (plan ≈ ${Math.round(days / 7 * 4)}, 4 a week); ${ws.filter(w => w.date > shiftDate(today, -7)).length} in the last 7 days`,
+      ...ws.map(w => `- ${shortDate(w.date)}: ${SESSIONS[w.session]}`),
+      "", "Lifts, top set per session, first → latest (assisted chin-up kg is assistance: lower is stronger)"];
+    // Top set: the heaviest weight (least assistance for the assisted chin-up), with the most reps done at it.
+    const top = (id, sets) => {
+      const kg = id === "assisted-chin" ? Math.min(...sets.map(x => x.kg)) : Math.max(...sets.map(x => x.kg));
+      return `${fmt(kg)} kg × ${Math.max(...sets.filter(x => x.kg === kg).map(x => x.reps))}`;
+    };
+    const byLift = new Map();
+    for (const w of ws) for (const [id, sets] of Object.entries(w.entries || {})) if (Array.isArray(sets) && sets.length) {
+      if (!byLift.has(id)) byLift.set(id, []);
+      byLift.get(id).push({ date: w.date, sets });
+    }
+    for (const [id, h] of byLift) {
+      const a = h[0], b = h.at(-1);
+      lines.push(`- ${liftName(id)}: ${top(id, a.sets)} (${shortDate(a.date)})${h.length > 1 ? ` → ${top(id, b.sets)} (${shortDate(b.date)}), ${h.length} sessions` : ""}`);
+    }
+    return lines;
+  }
+  // Loaded with the log, not on tap: Safari only lets a tap copy if nothing is awaited first.
+  let workouts = null;
+  async function loadWorkouts() {
+    try { workouts = must(await sb.from("workouts").select("date,session,entries").gte("date", shiftDate(todayStr(), 1 - CHECKIN_DAYS))); } catch {}
+  }
+  async function copyCheckin() {
+    // Signed in, it adds the gym sessions; without them (signed out, or not loaded) it's food only.
+    const text = checkinText(workouts), box = $("copyBox");
+    try {
+      await navigator.clipboard.writeText(text);
+      box.hidden = true;
+      $("copyNote").textContent = "Copied. Paste it into Claude.";
+    } catch {
+      // No clipboard access (some browsers, or not https): show the text to copy by hand.
+      box.value = text; box.hidden = false; box.focus(); box.select();
+      $("copyNote").textContent = "Select all and copy, then paste into Claude.";
+    }
+  }
+
+  // ---- wiring ----
+  $("copyAI").addEventListener("click", copyCheckin);
+  $("prevDay").addEventListener("click", () => { state.date = shiftDate(state.date, -1); render(); });
+  $("nextDay").addEventListener("click", () => { if (state.date < todayStr()) { state.date = shiftDate(state.date, 1); render(); } });
+  $("dateLabel").addEventListener("click", () => { state.date = todayStr(); render(); });
+  $("status").addEventListener("click", () => { if (!targetG()) { $("settings").open = true; $("sTarget").focus(); } });
+  $("weighForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const v = Number($("wKg").value), d = todayStr();
+    if (!(v >= 30 && v <= 300)) { $("wNote").textContent = "Enter your weight in kg (30–300)."; $("wKg").focus(); return; }
+    state.body[d] = { ...(state.body[d] || {}), weight: round1(v) };
+    saveBody(d);
+    state.profile = { ...state.profile, weightKg: round1(v) }; saveProfile();
+    $("wKg").blur(); render();
+    if ($("bDate").value === d && !bodyDirty) fillBodyForm();
+  });
+  $("kcalStatus").addEventListener("click", () => { if (!burn()) { $("settings").open = true; $(state.profile.heightCm > 0 ? "sAge" : "sHeight").focus(); } });
+  $("search").addEventListener("input", e => { state.query = e.target.value; renderGroups(); });
+  $("customForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = $("cName").value.trim(), protein = Number($("cProtein").value);
+    const kcal = $("cKcal").value === "" ? null : Number($("cKcal").value);
+    if (!name || !(protein >= 0) || (kcal != null && !(kcal >= 0))) return;
+    if ($("cSave").checked && !state.custom.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+      setCustom([...state.custom, { id: uid(), name, serving: "", protein, ...(kcal != null && { kcal }) }]);
+    }
+    addEntry({ name, serving: "", protein, kcal });
+    $("cName").value = ""; $("cProtein").value = ""; $("cKcal").value = "";
+  });
+  $("bFields").append(...MEASURES.map(m => el("div", { class: "field" },
+    el("label", { for: `b-${m.id}` }, `${m.name} (${m.unit})`),
+    el("input", { class: "input", id: `b-${m.id}`, type: "number", min: String(RANGE[m.unit][0]), max: String(RANGE[m.unit][1]), step: "0.1", inputmode: "decimal" }))));
+  $("howto").append(...MEASURES.map(m => el("li", {}, m.how)));
+  $("bDate").value = $("bDate").max = todayStr();
+  $("bDate").addEventListener("change", fillBodyForm);
+  $("bFields").addEventListener("input", () => { bodyDirty = true; });
+  $("bodyForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const d = $("bDate").value, msg = $("bMsg");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d > todayStr()) { msg.className = "msg err"; msg.textContent = "Pick the date you measured."; return; }
+    const vals = {};
+    for (const m of MEASURES) {
+      const inp = $(`b-${m.id}`);
+      if (inp.value === "") continue;
+      const v = Number(inp.value), [lo, hi] = RANGE[m.unit];
+      if (!(v >= lo && v <= hi)) { msg.className = "msg err"; msg.textContent = `${m.name} should be between ${lo} and ${hi} ${m.unit}.`; inp.focus(); return; }
+      vals[m.id] = round1(v);
+    }
+    if (!Object.keys(vals).length) { msg.className = "msg err"; msg.textContent = "Enter at least one measurement."; return; }
+    state.body[d] = vals;
+    saveBody(d);
+    // The newest weigh-in also becomes "Weight now", which sets the BMI.
+    if (vals.weight && d === series("weight").at(-1)?.date) { state.profile = { ...state.profile, weightKg: vals.weight }; saveProfile(); }
+    render(); fillBodyForm();
+    msg.className = "msg"; msg.textContent = d === todayStr() ? "Saved." : `Saved for ${shortDate(d)}.`;
+  });
+  for (const [id, key] of [["sWeight", "weightKg"], ["sHeight", "heightCm"], ["sTarget", "targetKg"], ["sWaistTarget", "waistTargetCm"], ["sAge", "age"], ["sSteps", "stepsPerDay"], ["sKcal", "kcalTarget"]]) {
+    $(id).addEventListener("change", e => {
+      let v = e.target.value === "" ? null : Number(e.target.value);
+      if (key === "stepsPerDay" && v === null) v = DEFAULT_PROFILE.stepsPerDay;
+      if (v !== null && !(v >= Number(e.target.min) && v <= Number(e.target.max))) { render(); return; }
+      if (key === "age" || key === "stepsPerDay" || key === "kcalTarget") v = v === null ? null : Math.round(v);
+      setProfile({ [key]: v });
+    });
+  }
+  // Roll over to the new day if the page stays open past midnight.
+  let lastToday = todayStr();
+  setInterval(() => { const t = todayStr(); if (t !== lastToday) { if (state.date === lastToday) state.date = t; lastToday = t; render(); } }, 60000);
+
+  // ---- start ----
+  try { if (localStorage.getItem(CHART_KEY) === "kcal") state.chart = "kcal"; } catch {}
+  render();
+  renderBanner();
+  if (sb) {
+    let started = false;
+    sb.auth.onAuthStateChange((event, session) => {
+      const u = session?.user ?? null;
+      if (started && (u?.id ?? null) === (user?.id ?? null)) return;   // token refreshes
+      started = true;
+      setTimeout(() => useAccount(u), 0);   // supabase-js advises against awaiting its calls inside this callback
+    });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && user) reload(); });
+  } else {
+    useAccount(null);
+  }
+  addEventListener("storage", e => { if (e.key === KEY && !user) reload(); });
+})();
+</script>
+</body>
+</html>
